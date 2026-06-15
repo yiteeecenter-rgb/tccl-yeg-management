@@ -23,65 +23,74 @@
 .login-card {
   background:#fff;
   border-radius:16px;
-  padding:40px 36px;
+  padding:28px 32px 24px;
   width:100%;
   max-width:380px;
   box-shadow:0 20px 60px rgba(0,0,0,0.3);
   text-align:center;
 }
-.login-logo { font-size:48px; margin-bottom:8px; }
-.login-title { font-size:22px; font-weight:700; color:#1a3c5e; margin-bottom:4px; }
-.login-sub { font-size:13px; color:#888; margin-bottom:28px; }
+.login-logo { font-size:48px; margin-bottom:6px; }
+.login-title { font-size:20px; font-weight:700; color:#1a3c5e; margin-bottom:2px; }
+.login-sub { font-size:12px; color:#888; margin-bottom:16px; }
 .login-card input {
   width:100%;
-  padding:12px 14px;
+  padding:9px 12px;
   border:1.5px solid #ddd;
   border-radius:8px;
-  font-size:15px;
-  margin-bottom:14px;
+  font-size:14px;
+  margin-bottom:8px;
   box-sizing:border-box;
   font-family:inherit;
 }
 .login-card input:focus { border-color:#2d6a9f; outline:none; }
+.login-label { display:block; text-align:left; font-size:12px; font-weight:600; color:#555; margin-bottom:3px; }
 .btn-login {
   width:100%;
-  padding:13px;
+  padding:10px;
   background:#2d6a9f;
   color:#fff;
   border:none;
   border-radius:8px;
-  font-size:16px;
+  font-size:15px;
   font-weight:600;
   cursor:pointer;
   margin-top:4px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
 }
 .btn-login:hover { background:#1a3c5e; }
-.login-error { color:#e53e3e; font-size:13px; margin-top:10px; }
+.login-error { color:#e53e3e; font-size:12px; margin-top:6px; }
 .login-card select {
   width:100%;
-  padding:12px 14px;
+  padding:9px 12px;
   border:1.5px solid #ddd;
   border-radius:8px;
-  font-size:15px;
-  margin-bottom:14px;
+  font-size:14px;
+  margin-bottom:8px;
   box-sizing:border-box;
   font-family:inherit;
   background:#fff;
 }
 .login-card select:focus { border-color:#2d6a9f; outline:none; }
-.login-switch { font-size:13px; color:#888; margin-top:14px; }
+.login-switch { font-size:12px; color:#888; margin-top:10px; }
 .login-switch a { color:#2d6a9f; cursor:pointer; text-decoration:underline; }
 .btn-register {
   width:100%;
-  padding:13px;
+  padding:10px;
   background:#38a169;
   color:#fff;
   border:none;
   border-radius:8px;
-  font-size:16px;
+  font-size:15px;
   font-weight:600;
   cursor:pointer;
   margin-top:4px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
 }
 .btn-register:hover { background:#276749; }
 
@@ -759,6 +768,21 @@ select.form-control { font-family:unset; }
   </div>
 </div>
 
+<!-- Confirm Dialog -->
+<div class="modal-overlay" id="modal-confirm" style="z-index:9999">
+  <div class="modal-box" style="max-width:360px;padding:0">
+    <div style="padding:24px 24px 8px;text-align:center">
+      <div style="font-size:36px;margin-bottom:12px" id="confirm-icon">⚠️</div>
+      <div style="font-size:16px;font-weight:700;color:#1a3c5e;margin-bottom:8px" id="confirm-title">ยืนยัน</div>
+      <div style="font-size:14px;color:#555" id="confirm-message"></div>
+    </div>
+    <div class="modal-foot" style="padding:16px 24px;gap:10px">
+      <button class="btn btn-outline" style="flex:1" id="confirm-cancel-btn">ยกเลิก</button>
+      <button class="btn" style="flex:1;background:#e53e3e;color:#fff" id="confirm-ok-btn">ลบ</button>
+    </div>
+  </div>
+</div>
+
 <!-- Print Modal -->
 <div class="modal-overlay" id="modal-print">
   <div class="modal-box" style="max-width:90vw">
@@ -950,6 +974,26 @@ window.doRegister = async () => {
     errEl.textContent = 'สมัครไม่สำเร็จ: ' + (e.message || e);
   }
 };
+
+window.appConfirm = function appConfirm({ title='ยืนยัน', message='', icon='⚠️', okText='ยืนยัน', okColor='#e53e3e' } = {}) {
+  return new Promise(resolve => {
+    document.getElementById('confirm-icon').textContent = icon;
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-message').textContent = message;
+    const okBtn = document.getElementById('confirm-ok-btn');
+    okBtn.textContent = okText;
+    okBtn.style.background = okColor;
+    openModal('modal-confirm');
+    const ok = () => { cleanup(); closeModal('modal-confirm'); resolve(true); };
+    const cancel = () => { cleanup(); closeModal('modal-confirm'); resolve(false); };
+    const cleanup = () => {
+      okBtn.removeEventListener('click', ok);
+      document.getElementById('confirm-cancel-btn').removeEventListener('click', cancel);
+    };
+    okBtn.addEventListener('click', ok);
+    document.getElementById('confirm-cancel-btn').addEventListener('click', cancel);
+  });
+}
 
 window.doLogout = async () => {
   await sb.auth.signOut();
@@ -1246,7 +1290,8 @@ window.savePC = async (submitStatus) => {
 };
 
 window.deletePC = async (id) => {
-  if (!confirm('ยืนยันการลบเอกสาร?')) return;
+  const ok = await appConfirm({ title:'ลบเอกสาร', message:'ยืนยันการลบเอกสารนี้? ไม่สามารถกู้คืนได้', icon:'🗑️', okText:'ลบ' });
+  if (!ok) return;
   loading(true);
   await sb.from('petty_cash').delete().eq('id', id);
   toast('ลบแล้ว');
@@ -1888,7 +1933,8 @@ window.saveJob = async () => {
 };
 
 window.deleteJob = async (id) => {
-  if (!confirm('ยืนยันการลบงานนี้?')) return;
+  const ok = await appConfirm({ title:'ลบงาน', message:'ยืนยันการลบงานนี้? ไม่สามารถกู้คืนได้', icon:'🗑️', okText:'ลบ' });
+  if (!ok) return;
   await sb.from('jobs').delete().eq('id', id);
   toast('ลบงานแล้ว');
   loadJobs();
