@@ -51,6 +51,33 @@
 }
 .btn-login:hover { background:#1a3c5e; }
 .login-error { color:#e53e3e; font-size:13px; margin-top:10px; }
+.login-card select {
+  width:100%;
+  padding:12px 14px;
+  border:1.5px solid #ddd;
+  border-radius:8px;
+  font-size:15px;
+  margin-bottom:14px;
+  box-sizing:border-box;
+  font-family:inherit;
+  background:#fff;
+}
+.login-card select:focus { border-color:#2d6a9f; outline:none; }
+.login-switch { font-size:13px; color:#888; margin-top:14px; }
+.login-switch a { color:#2d6a9f; cursor:pointer; text-decoration:underline; }
+.btn-register {
+  width:100%;
+  padding:13px;
+  background:#38a169;
+  color:#fff;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  margin-top:4px;
+}
+.btn-register:hover { background:#276749; }
 
 /* ─── App Shell ─────────────────────────────────────────── */
 #app-screen { display:none; }
@@ -263,7 +290,8 @@ tr:hover td { background:#fafbfc; }
      LOGIN SCREEN
 ════════════════════════════════════════════════════════════ -->
 <div id="login-screen">
-  <div class="login-card">
+  <!-- หน้า Login -->
+  <div class="login-card" id="card-login">
     <div class="login-logo">🏗️</div>
     <div class="login-title">ระบบจัดการงานก่อสร้าง</div>
     <div class="login-sub">TCCL / Yipintsoi Energy</div>
@@ -271,6 +299,23 @@ tr:hover td { background:#fafbfc; }
     <input type="password" id="login-password" placeholder="รหัสผ่าน" autocomplete="current-password">
     <button class="btn-login" onclick="doLogin()">เข้าสู่ระบบ</button>
     <div class="login-error" id="login-error"></div>
+    <div class="login-switch">ยังไม่มีบัญชี? <a onclick="showRegister()">สมัครสมาชิก</a></div>
+  </div>
+
+  <!-- หน้าสมัครสมาชิก -->
+  <div class="login-card" id="card-register" style="display:none">
+    <div class="login-logo">📝</div>
+    <div class="login-title">สมัครสมาชิก</div>
+    <div class="login-sub">กรอกข้อมูลเพื่อสมัครใช้งาน</div>
+    <input type="text" id="reg-name" placeholder="ชื่อ-นามสกุล">
+    <input type="email" id="reg-email" placeholder="อีเมล">
+    <input type="password" id="reg-password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)">
+    <select id="reg-company">
+      <option value="">-- เลือกบริษัท --</option>
+    </select>
+    <button class="btn-register" onclick="doRegister()">สมัครสมาชิก</button>
+    <div class="login-error" id="reg-error"></div>
+    <div class="login-switch">มีบัญชีแล้ว? <a onclick="showLogin()">เข้าสู่ระบบ</a></div>
   </div>
 </div>
 
@@ -504,6 +549,63 @@ window.doLogin = async () => {
 };
 
 document.getElementById('login-password').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+
+// ── Register toggle ───────────────────────────────────────────
+window.showRegister = async () => {
+  document.getElementById('card-login').style.display = 'none';
+  document.getElementById('card-register').style.display = 'block';
+  // load companies into dropdown
+  const { data } = await sb.from('companies').select('*').order('name');
+  const sel = document.getElementById('reg-company');
+  sel.innerHTML = '<option value="">-- เลือกบริษัท --</option>' +
+    (data||[]).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+};
+window.showLogin = () => {
+  document.getElementById('card-register').style.display = 'none';
+  document.getElementById('card-login').style.display = 'block';
+};
+
+window.doRegister = async () => {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass = document.getElementById('reg-password').value;
+  const companyId = document.getElementById('reg-company').value;
+  const errEl = document.getElementById('reg-error');
+  errEl.textContent = '';
+
+  if (!name || !email || !pass || !companyId) {
+    errEl.textContent = 'กรุณากรอกข้อมูลให้ครบทุกช่อง';
+    return;
+  }
+  if (pass.length < 6) {
+    errEl.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัว';
+    return;
+  }
+
+  loading(true);
+  try {
+    // สร้าง auth user
+    const { data, error } = await sb.auth.signUp({ email, password: pass });
+    if (error) throw error;
+
+    // สร้าง profile
+    const { error: profErr } = await sb.from('profiles').insert({
+      id: data.user.id,
+      full_name: name,
+      role: 'staff',
+      company_id: companyId
+    });
+    if (profErr) throw profErr;
+
+    loading(false);
+    alert('สมัครสมาชิกสำเร็จแล้วครับ!\nเข้าสู่ระบบได้เลยครับ');
+    showLogin();
+    document.getElementById('login-email').value = email;
+  } catch(e) {
+    loading(false);
+    errEl.textContent = 'สมัครไม่สำเร็จ: ' + (e.message || e);
+  }
+};
 
 window.doLogout = async () => {
   await sb.auth.signOut();
