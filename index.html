@@ -717,6 +717,48 @@ select.form-control { font-family:unset; }
   </div>
 </div>
 
+<!-- Add User Modal (Admin) -->
+<div class="modal-overlay" id="modal-add-user">
+  <div class="modal-box" style="max-width:460px">
+    <div class="modal-head">
+      <h3>เพิ่มผู้ใช้งานใหม่</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-user')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>ชื่อ-นามสกุล</label>
+        <input class="form-control" id="add-user-name" placeholder="ชื่อ-นามสกุล">
+      </div>
+      <div class="form-group">
+        <label>อีเมล</label>
+        <input type="email" class="form-control" id="add-user-email" placeholder="email@example.com">
+      </div>
+      <div class="form-group">
+        <label>รหัสผ่าน</label>
+        <input type="password" class="form-control" id="add-user-password" placeholder="อย่างน้อย 6 ตัว">
+      </div>
+      <div class="form-group">
+        <label>บริษัท</label>
+        <select class="form-control" id="add-user-company"></select>
+      </div>
+      <div class="form-group">
+        <label>สิทธิ์การใช้งาน</label>
+        <select class="form-control" id="add-user-role">
+          <option value="staff">staff — พนักงาน</option>
+          <option value="manager">manager — ผู้จัดการ</option>
+          <option value="admin">admin — ผู้ดูแลระบบ</option>
+          <option value="owner">owner — เจ้าของ</option>
+        </select>
+      </div>
+      <div class="login-error" id="add-user-error"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-user')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="doAddUser()">สร้างบัญชี</button>
+    </div>
+  </div>
+</div>
+
 <!-- Print Modal -->
 <div class="modal-overlay" id="modal-print">
   <div class="modal-box" style="max-width:90vw">
@@ -1334,7 +1376,61 @@ async function loadUsers() {
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#999">ยังไม่มีผู้ใช้</td></tr>';
 }
 
-window.openUserForm = () => toast('พนักงานสมัครสมาชิกเองได้จากหน้า Login ครับ แล้วมาแก้ Role ที่นี่ได้เลย');
+window.openUserForm = () => {
+  document.getElementById('add-user-name').value = '';
+  document.getElementById('add-user-email').value = '';
+  document.getElementById('add-user-password').value = '';
+  document.getElementById('add-user-error').textContent = '';
+  document.getElementById('add-user-role').value = 'staff';
+  const sel = document.getElementById('add-user-company');
+  sel.innerHTML = '<option value="">-- เลือกบริษัท --</option>' +
+    companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  openModal('modal-add-user');
+};
+
+window.doAddUser = async () => {
+  const name = document.getElementById('add-user-name').value.trim();
+  const email = document.getElementById('add-user-email').value.trim();
+  const pass = document.getElementById('add-user-password').value;
+  const companyId = document.getElementById('add-user-company').value;
+  const role = document.getElementById('add-user-role').value;
+  const errEl = document.getElementById('add-user-error');
+  errEl.textContent = '';
+
+  if (!name || !email || !pass || !companyId) {
+    errEl.textContent = 'กรุณากรอกข้อมูลให้ครบทุกช่อง';
+    return;
+  }
+  if (pass.length < 6) { errEl.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัว'; return; }
+
+  loading(true);
+  try {
+    // เก็บ session admin ไว้ก่อน
+    const { data: sessionData } = await sb.auth.getSession();
+    const adminSession = sessionData.session;
+
+    // สร้าง user ใหม่
+    const { data, error } = await sb.auth.signUp({ email, password: pass });
+    if (error) throw error;
+
+    // สร้าง profile
+    const { error: profErr } = await sb.from('profiles').insert({
+      id: data.user.id, full_name: name, role, company_id: companyId
+    });
+    if (profErr) throw profErr;
+
+    // restore admin session
+    await sb.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+
+    loading(false);
+    toast(`สร้างบัญชี ${name} สำเร็จแล้ว ✓`);
+    closeModal('modal-add-user');
+    loadUsers();
+  } catch(e) {
+    loading(false);
+    errEl.textContent = 'เกิดข้อผิดพลาด: ' + (e.message || e);
+  }
+};
 
 window.editUser = (id, name, companyId, role) => {
   document.getElementById('user-edit-id').value = id;
