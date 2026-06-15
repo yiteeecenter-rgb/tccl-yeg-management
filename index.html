@@ -202,6 +202,7 @@ tr:hover td { background:#fafbfc; }
   max-width:640px;
   box-shadow:0 20px 60px rgba(0,0,0,.3);
 }
+.modal-box.preview-open { max-width:90vw; }
 .modal-head {
   padding:18px 24px;
   border-bottom:1px solid #e2e8f0;
@@ -219,13 +220,20 @@ tr:hover td { background:#fafbfc; }
 .form-group label { display:block; font-size:13px; font-weight:600; color:#444; margin-bottom:6px; }
 .form-control {
   width:100%;
-  padding:10px 12px;
+  padding:8px 12px;
   border:1.5px solid #ddd;
   border-radius:8px;
   font-size:14px;
   font-family:inherit;
   box-sizing:border-box;
+  height:40px;
 }
+select.form-control { font-family:unset; }
+.item-row select { width:100%; font-size:14px; }
+[data-section="row-body"] select { width:100%; font-size:14px; height:40px; box-sizing:border-box; }
+[data-section="row-body"] .form-control { height:40px; }
+[data-section="row-body"] [style*="font-size:11px"] { font-size:13px !important; font-weight:600; color:#444; }
+.item-row input { line-height:2; }
 .form-control:focus { border-color:#2d6a9f; outline:none; }
 .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 
@@ -241,7 +249,7 @@ tr:hover td { background:#fafbfc; }
 }
 .item-row.expense-row { grid-template-columns:1fr 100px 40px; }
 .item-row.trip-row { grid-template-columns:1fr 1fr 80px 40px; }
-.item-row input { padding:7px 10px; border:1px solid #ddd; border-radius:6px; font-size:13px; width:100%; box-sizing:border-box; }
+.item-row input { padding:10px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:14px; font-family:inherit; line-height:2; width:100%; box-sizing:border-box; }
 .btn-del-row { background:#fed7d7; border:none; color:#e53e3e; border-radius:6px; cursor:pointer; font-size:16px; width:32px; height:32px; }
 
 /* ─── Photo preview ─────────────────────────────────────── */
@@ -477,7 +485,7 @@ tr:hover td { background:#fafbfc; }
 
     <!-- ── ADMIN ────────────────────────────────────────────── -->
     <div class="tab-pane" id="tab-admin">
-      <div class="card">
+      <div class="card" style="margin-bottom:20px">
         <div class="card-header">
           <h3>จัดการผู้ใช้งาน</h3>
           <button class="btn btn-primary" onclick="openUserForm()">+ เพิ่มผู้ใช้</button>
@@ -486,6 +494,20 @@ tr:hover td { background:#fafbfc; }
           <table>
             <thead><tr><th>ชื่อ</th><th>อีเมล</th><th>บริษัท</th><th>สิทธิ์</th><th>จัดการ</th></tr></thead>
             <tbody id="user-list"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- จัดการงาน/โปรเจค -->
+      <div class="card">
+        <div class="card-header">
+          <h3>จัดการงาน / โปรเจค</h3>
+          <button class="btn btn-primary" onclick="openJobForm()">+ เพิ่มงาน</button>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>ประเภท</th><th>ชื่องาน</th><th>รหัส Job</th><th>บริษัท</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+            <tbody id="job-list"></tbody>
           </table>
         </div>
       </div>
@@ -501,14 +523,17 @@ tr:hover td { background:#fafbfc; }
 
 <!-- Petty Cash Form Modal -->
 <div class="modal-overlay" id="modal-pc">
-  <div class="modal-box">
+  <div class="modal-box" id="modal-pc-box">
     <div class="modal-head">
       <h3 id="modal-pc-title">สร้างเอกสารเบิกเงินสดย่อย</h3>
       <button class="modal-close" onclick="closeModal('modal-pc')">✕</button>
     </div>
-    <div class="modal-body">
+    <div id="modal-pc-inner" style="display:flex;gap:0;overflow:visible;flex:1;min-height:0">
+    <div class="modal-body" id="modal-pc-form-body" style="flex:0 0 640px;width:640px;overflow-y:auto">
       <input type="hidden" id="pc-id">
-      <div class="form-row">
+
+      <!-- แถวที่ 1: เลขที่ + วันที่ + บริษัท -->
+      <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
         <div class="form-group">
           <label>เลขที่เอกสาร</label>
           <input class="form-control" id="pc-doc-no" readonly>
@@ -517,45 +542,126 @@ tr:hover td { background:#fafbfc; }
           <label>วันที่</label>
           <input type="date" class="form-control" id="pc-date" lang="th-TH">
         </div>
+        <div class="form-group">
+          <label>บริษัท</label>
+          <select class="form-control" id="pc-company"></select>
+        </div>
+      </div>
+
+      <!-- แถวที่ 2: ส่วน + ฝ่าย + รหัสหน่วยงาน -->
+      <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="form-group">
+          <label>ส่วน</label>
+          <input class="form-control" id="pc-department" placeholder="เช่น วิศวกรรม">
+        </div>
+        <div class="form-group">
+          <label>ฝ่าย</label>
+          <input class="form-control" id="pc-division" placeholder="เช่น โยธา">
+        </div>
+        <div class="form-group">
+          <label>รหัสหน่วยงาน</label>
+          <input class="form-control" id="pc-unit-code" placeholder="เช่น ENG-001">
+        </div>
+      </div>
+
+      <!-- วัตถุประสงค์ -->
+      <div class="form-group">
+        <label>วัตถุประสงค์ค่าใช้จ่าย</label>
+        <input class="form-control" id="pc-purpose" placeholder="เช่น ค่าใช้จ่ายในการประสานงาน">
+      </div>
+      <div style="display:flex;gap:20px;margin-top:-8px;margin-bottom:16px;font-size:14px;align-items:center">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="pc-is-so" style="width:16px;height:16px"> SO
+        </label>
+        <input class="form-control" id="pc-so-number" placeholder="เลข SO" style="max-width:140px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="pc-is-project" style="width:16px;height:16px"> Project
+        </label>
+        <input class="form-control" id="pc-project-number" placeholder="เลข Project" style="max-width:160px">
+      </div>
+
+      <!-- ── รายการค่าใช้จ่าย ── -->
+      <div class="section-divider">
+        <span><i data-lucide="list" style="width:15px;height:15px"></i> รายการค่าใช้จ่าย</span>
+        <button class="btn btn-sm btn-outline" onclick="addTripRow()">+ เพิ่มรายการ</button>
+      </div>
+      <div id="trip-rows"></div>
+      <div class="subtotal-bar">รวมค่าเดินทาง: <strong id="trip-subtotal">฿0.00</strong></div>
+
+
+      <!-- ยอดรวม -->
+      <div class="grand-total-bar" style="margin-top:16px">
+        <span class="label">รวมทั้งสิ้น</span>
+        <span class="amount" id="pc-grand-total">฿0.00</span>
+      </div>
+    </div><!-- end modal-pc-form-body -->
+
+    <!-- Preview Panel (อยู่ใน modal-pc-inner เคียงกับฟอร์ม) -->
+    <div id="pc-preview-panel" style="display:none;flex:1;min-width:0;border-left:1px solid #e2e8f0;overflow-y:auto;background:#f7f9fc;padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;color:#888">— ตัวอย่างเอกสาร (อัปเดตอัตโนมัติ) —</span>
+        <button class="btn btn-sm btn-outline" onclick="printPreview()" style="display:flex;align-items:center;gap:4px;font-size:12px">
+          <i data-lucide="printer" style="width:13px;height:13px"></i> พิมพ์
+        </button>
+      </div>
+      <div style="display:flex;justify-content:center">
+        <div id="pc-preview-content" style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:16px;font-family:'Sarabun',sans-serif;font-size:12px;min-height:400px;width:210mm;max-width:100%;box-sizing:border-box"></div>
+      </div>
+    </div>
+
+    </div><!-- end modal-pc-inner -->
+
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-pc')">ยกเลิก</button>
+      <button class="btn btn-outline" id="btn-preview-toggle" onclick="togglePCPreview()">👁 ดูตัวอย่าง</button>
+      <button class="btn btn-primary" onclick="savePC('draft')">บันทึกร่าง</button>
+      <button class="btn btn-success" onclick="savePC('pending')">ส่งขออนุมัติ</button>
+    </div>
+  </div><!-- end modal-pc-box -->
+</div><!-- end modal-pc overlay -->
+
+<!-- Job Form Modal -->
+<div class="modal-overlay" id="modal-job">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-head">
+      <h3 id="modal-job-title">เพิ่มงาน / โปรเจค</h3>
+      <button class="modal-close" onclick="closeModal('modal-job')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="job-id">
+      <div class="form-group">
+        <label>ประเภท / หมวดงาน</label>
+        <select class="form-control" id="job-category">
+          <option value="">-- เลือกประเภท --</option>
+          <option value="การไฟฟ้าส่วนภูมิภาค">การไฟฟ้าส่วนภูมิภาค</option>
+          <option value="การไฟฟ้าฝ่ายผลิต">การไฟฟ้าฝ่ายผลิต</option>
+          <option value="การไฟฟ้านครหลวง">การไฟฟ้านครหลวง</option>
+          <option value="งานเอกชน">งานเอกชน</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ชื่องาน / โปรเจค</label>
+        <input class="form-control" id="job-name" placeholder="เช่น สถานีไฟฟ้าขอนแก่น 1">
+      </div>
+      <div class="form-group">
+        <label>รหัส Job</label>
+        <input class="form-control" id="job-code" placeholder="เช่น P.254001">
       </div>
       <div class="form-group">
         <label>บริษัท</label>
-        <select class="form-control" id="pc-company"></select>
+        <select class="form-control" id="job-company"></select>
       </div>
       <div class="form-group">
-        <label>จุดประสงค์</label>
-        <input class="form-control" id="pc-purpose" placeholder="เช่น ค่าใช้จ่ายไซต์งาน">
+        <label>รายละเอียด (ถ้ามี)</label>
+        <input class="form-control" id="job-desc" placeholder="รายละเอียดเพิ่มเติม">
       </div>
-
-      <!-- Expenses -->
-      <div class="card-header" style="padding:12px 0;border:none">
-        <strong>รายการค่าใช้จ่าย</strong>
-        <button class="btn btn-sm btn-outline" onclick="addExpenseRow()">+ เพิ่มรายการ</button>
-      </div>
-      <div id="expense-rows"></div>
-      <div style="text-align:right;font-size:13px;color:#888;margin-top:4px">
-        รวมค่าใช้จ่าย: <strong id="exp-subtotal">฿0</strong>
-      </div>
-
-      <!-- Trips -->
-      <div class="card-header" style="padding:12px 0 4px;border:none;margin-top:12px">
-        <strong>บันทึกการเดินทาง</strong>
-        <button class="btn btn-sm btn-outline" onclick="addTripRow()">+ เพิ่มเส้นทาง</button>
-      </div>
-      <div style="font-size:12px;color:#999;margin-bottom:8px">อัตรา ฿5 / กม.</div>
-      <div id="trip-rows"></div>
-      <div style="text-align:right;font-size:13px;color:#888;margin-top:4px">
-        รวมค่าเดินทาง: <strong id="trip-subtotal">฿0</strong>
-      </div>
-
-      <div style="margin-top:16px;padding:12px;background:#f7fafc;border-radius:8px;text-align:right">
-        <span style="font-size:16px;font-weight:700">ยอดรวมทั้งหมด: <span id="pc-grand-total" style="color:#2d6a9f">฿0</span></span>
-      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
+        <input type="checkbox" id="job-active" checked style="width:16px;height:16px"> เปิดใช้งาน
+      </label>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-outline" onclick="closeModal('modal-pc')">ยกเลิก</button>
-      <button class="btn btn-primary" onclick="savePC('draft')">บันทึกร่าง</button>
-      <button class="btn btn-success" onclick="savePC('pending')">ส่งขออนุมัติ</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-job')">ยกเลิก</button>
+      <button class="btn btn-success" onclick="saveJob()">บันทึก</button>
     </div>
   </div>
 </div>
@@ -613,7 +719,7 @@ tr:hover td { background:#fafbfc; }
 
 <!-- Print Modal -->
 <div class="modal-overlay" id="modal-print">
-  <div class="modal-box" style="max-width:720px">
+  <div class="modal-box" style="max-width:90vw">
     <div class="modal-head">
       <h3>พิมพ์เอกสาร</h3>
       <button class="modal-close" onclick="closeModal('modal-print')">✕</button>
@@ -668,6 +774,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
 let currentProfile = null;
 let companies = [];
+let jobsList = [];
 
 // ── Helpers ───────────────────────────────────────────────────
 function toast(msg, ms = 3000) {
@@ -679,7 +786,7 @@ function toast(msg, ms = 3000) {
 function loading(show) {
   document.getElementById('loading').classList.toggle('show', show);
 }
-function fmt(n) { return '฿' + Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 }); }
+function fmt(n) { return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmtDate(d) {
   if (!d) return '';
   return new Date(d).toLocaleDateString('th-TH', { year:'numeric', month:'short', day:'numeric' });
@@ -693,8 +800,29 @@ function genDocNo() {
   const d = new Date();
   return `PC-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${Math.floor(Math.random()*900+100)}`;
 }
-window.openModal = (id) => document.getElementById(id).classList.add('open');
-window.closeModal = (id) => document.getElementById(id).classList.remove('open');
+window.openModal = (id) => {
+  document.getElementById(id).classList.add('open');
+  if (id === 'modal-pc') {
+    // attach live-preview listener once
+    const form = document.getElementById('modal-pc-form-body');
+    if (form && !form._previewListenerAdded) {
+      form.addEventListener('input', () => updatePreview());
+      form.addEventListener('change', () => updatePreview());
+      form._previewListenerAdded = true;
+    }
+  }
+};
+window.closeModal = (id) => {
+  document.getElementById(id).classList.remove('open');
+  if (id === 'modal-pc' && previewOpen) {
+    previewOpen = false;
+    document.getElementById('pc-preview-panel').style.display = 'none';
+    document.getElementById('modal-pc-box').classList.remove('preview-open');
+    const btn = document.getElementById('btn-preview-toggle');
+    btn.style.background = '';
+    btn.style.color = '';
+  }
+};
 
 // ── Sidebar toggle ────────────────────────────────────────────
 window.toggleSidebar = () => {
@@ -798,6 +926,10 @@ async function initApp(user) {
   const { data: comps } = await sb.from('companies').select('*');
   companies = comps || [];
 
+  // load jobs
+  const { data: jobsData } = await sb.from('jobs').select('*').eq('is_active', true).order('job_name');
+  jobsList = jobsData || [];
+
   // UI
   const role = currentProfile?.role || 'staff';
   const displayName = currentProfile?.full_name || user.email;
@@ -852,7 +984,7 @@ window.switchTab = (name, el) => {
   if (name === 'dashboard') loadDashboard();
   if (name === 'petty-cash') loadPettyCash();
   if (name === 'approval') loadApproval();
-  if (name === 'admin') loadUsers();
+  if (name === 'admin') { loadUsers(); loadJobs(); }
 };
 
 // ── Dashboard ─────────────────────────────────────────────────
@@ -916,6 +1048,19 @@ function initDatePicker() {
     allowInput: true,
     defaultDate: new Date(),
   });
+  // init flatpickr on all trip_date fields
+  document.querySelectorAll('[data-field="trip_date"]').forEach(el => {
+    if (el._flatpickr) el._flatpickr.destroy();
+    const saved = el.value;
+    flatpickr(el, {
+      locale: 'th',
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'd/m/Y',
+      allowInput: true,
+      defaultDate: saved || null,
+    });
+  });
 }
 
 window.openPCForm = () => {
@@ -924,13 +1069,19 @@ window.openPCForm = () => {
   document.getElementById('pc-doc-no').value = genDocNo();
   document.getElementById('pc-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('pc-purpose').value = '';
+  document.getElementById('pc-department').value = '';
+  document.getElementById('pc-division').value = '';
+  document.getElementById('pc-unit-code').value = '';
+  document.getElementById('pc-is-so').checked = false;
+  document.getElementById('pc-so-number').value = '';
+  document.getElementById('pc-is-project').checked = false;
+  document.getElementById('pc-project-number').value = '';
 
   // populate company dropdown
   const sel = document.getElementById('pc-company');
   sel.innerHTML = companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   if (currentProfile?.company_id) sel.value = currentProfile.company_id;
 
-  document.getElementById('expense-rows').innerHTML = '';
   document.getElementById('trip-rows').innerHTML = '';
   updateTotals();
   openModal('modal-pc');
@@ -947,16 +1098,21 @@ window.editPC = async (id) => {
   document.getElementById('pc-doc-no').value = r.doc_no;
   document.getElementById('pc-date').value = r.doc_date;
   document.getElementById('pc-purpose').value = r.purpose || '';
+  document.getElementById('pc-department').value = r.department || '';
+  document.getElementById('pc-division').value = r.division || '';
+  document.getElementById('pc-unit-code').value = r.unit_code || '';
+  document.getElementById('pc-is-so').checked = r.is_so || false;
+  document.getElementById('pc-so-number').value = r.so_number || '';
+  document.getElementById('pc-is-project').checked = r.is_project || false;
+  document.getElementById('pc-project-number').value = r.project_number || '';
 
   const sel = document.getElementById('pc-company');
   sel.innerHTML = companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   sel.value = r.company_id;
 
-  document.getElementById('expense-rows').innerHTML = '';
-  (r.expenses || []).forEach(e => addExpenseRow(e.description, e.amount));
 
   document.getElementById('trip-rows').innerHTML = '';
-  (r.trips || []).forEach(t => addTripRow(t.origin, t.destination, t.distance));
+  (r.trips || []).forEach(t => addTripRow(t));
 
   updateTotals();
   openModal('modal-pc');
@@ -970,6 +1126,13 @@ window.savePC = async (submitStatus) => {
     doc_date: document.getElementById('pc-date').value,
     company_id: document.getElementById('pc-company').value,
     purpose: document.getElementById('pc-purpose').value,
+    department: document.getElementById('pc-department').value,
+    division: document.getElementById('pc-division').value,
+    unit_code: document.getElementById('pc-unit-code').value,
+    is_so: document.getElementById('pc-is-so').checked,
+    so_number: document.getElementById('pc-so-number').value,
+    is_project: document.getElementById('pc-is-project').checked,
+    project_number: document.getElementById('pc-project-number').value,
     created_by: currentUser.id,
     status: submitStatus,
     total_amount: parseFloat(document.getElementById('pc-grand-total').textContent.replace(/[฿,]/g,'')) || 0
@@ -986,33 +1149,49 @@ window.savePC = async (submitStatus) => {
       pcId = data.id;
     }
 
-    // save expenses
-    const expRows = document.querySelectorAll('#expense-rows .item-row');
-    await sb.from('expenses').delete().eq('petty_cash_id', pcId);
-    const exps = [];
-    expRows.forEach(row => {
-      const inputs = row.querySelectorAll('input');
-      if (inputs[0].value) exps.push({ petty_cash_id: pcId, description: inputs[0].value, amount: parseFloat(inputs[1].value)||0 });
-    });
-    if (exps.length) await sb.from('expenses').insert(exps);
 
-    // save trips
+    // save trips — delete AFTER building insert payload to prevent data loss on error
     const tripRows = document.querySelectorAll('#trip-rows .item-row');
-    await sb.from('trips').delete().eq('petty_cash_id', pcId);
     const trips = [];
     tripRows.forEach(row => {
-      const inputs = row.querySelectorAll('input');
-      const dist = parseFloat(inputs[2].value)||0;
-      if (inputs[0].value || inputs[1].value) trips.push({
+      const g = (f) => row.querySelector(`[data-field="${f}"]`)?.value || '';
+      const type = g('trip_type') || 'mile';
+      const dist = parseFloat(g('distance')) || 0;
+      const getPhotoUrl = (photoType) => {
+        const card = row.querySelector(`[data-photo-type="${photoType}"]`);
+        return card?.querySelector('img.photo-preview')?.getAttribute('data-url') || null;
+      };
+      const hasToll = row.querySelector('[data-field="has_toll"]')?.checked || false;
+      const entry = {
         petty_cash_id: pcId,
-        origin: inputs[0].value,
-        destination: inputs[1].value,
-        distance: dist,
+        trip_type: type,
+        location_name: g('location_name'),
+        job_code: g('job_code'),
+        origin: g('origin'),
+        trip_date: g('trip_date') || record.doc_date,
         rate: 5,
-        amount: dist * 5
-      });
+        amount: parseFloat(g('amount')) || 0,
+        toll_amount: hasToll ? (parseFloat(g('toll_amount')) || 0) : null,
+        line_approval_url: getPhotoUrl('line_approval'),
+      };
+      if (type === 'mile') {
+        entry.odometer_before = parseFloat(g('odometer_before')) || null;
+        entry.odometer_after  = parseFloat(g('odometer_after'))  || null;
+        entry.distance        = dist;
+        entry.amount          = parseFloat(g('amount')) || dist * 5;
+        entry.photo_before_url = getPhotoUrl('before');
+        entry.photo_after_url  = getPhotoUrl('after');
+      } else {
+        entry.photo_before_url = getPhotoUrl('before');
+      }
+      if (entry.location_name || entry.amount) trips.push(entry);
     });
-    if (trips.length) await sb.from('trips').insert(trips);
+    // delete only after payload is ready — prevents data loss if build step errors
+    await sb.from('trips').delete().eq('petty_cash_id', pcId);
+    if (trips.length) {
+      const { error: tripErr } = await sb.from('trips').insert(trips);
+      if (tripErr) throw new Error('บันทึกรายการเดินทางไม่สำเร็จ: ' + tripErr.message);
+    }
 
     toast(submitStatus === 'pending' ? 'ส่งขออนุมัติแล้ว ✓' : 'บันทึกแล้ว ✓');
     closeModal('modal-pc');
@@ -1041,8 +1220,8 @@ window.viewPC = async (id) => {
     .eq('id', id).single();
   loading(false);
 
-  const expTotal = (r.expenses||[]).reduce((a,e)=>a+Number(e.amount),0);
   const tripTotal = (r.trips||[]).reduce((a,t)=>a+Number(t.amount),0);
+  const expTotal  = (r.expenses||[]).reduce((a,e)=>a+Number(e.amount),0);
 
   document.getElementById('approve-detail').innerHTML = `
     <div class="form-row" style="margin-bottom:12px">
@@ -1052,20 +1231,27 @@ window.viewPC = async (id) => {
     <div style="margin-bottom:8px"><strong>จุดประสงค์:</strong> ${r.purpose||'-'}</div>
     <div style="margin-bottom:16px"><strong>สถานะ:</strong> ${badgeHtml(r.status)}</div>
 
-    ${r.expenses?.length ? `
-    <strong>รายการค่าใช้จ่าย</strong>
+    ${r.trips?.length ? `
+    <strong>รายการเดินทาง/ค่าใช้จ่าย</strong>
     <table style="margin-top:8px;margin-bottom:16px">
-      <thead><tr><th>รายการ</th><th>จำนวนเงิน</th></tr></thead>
-      <tbody>${r.expenses.map(e=>`<tr><td>${e.description}</td><td>${fmt(e.amount)}</td></tr>`).join('')}
-      <tr style="font-weight:700"><td>รวม</td><td>${fmt(expTotal)}</td></tr></tbody>
+      <thead><tr><th>วันที่</th><th>ประเภท</th><th>รายละเอียด</th><th style="text-align:right">จำนวนเงิน</th></tr></thead>
+      <tbody>${r.trips.map(t=>{
+        const tLabel = {mile:'ค่าไมล์เรท',taxi:'ค่าแท็กซี่',purchase:'ซื้อของ',other:'อื่นๆ'}[t.trip_type]||t.trip_type||'-';
+        const tDate = t.trip_date ? new Date(t.trip_date).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}) : '-';
+        const detail = t.location_name || t.origin || '-';
+        const rows = [`<tr><td>${tDate}</td><td>${tLabel}</td><td>${detail}</td><td style="text-align:right">${fmt(t.amount)}</td></tr>`];
+        if (Number(t.toll_amount) > 0) rows.push(`<tr><td>${tDate}</td><td>ค่าทางด่วน</td><td>${detail}</td><td style="text-align:right">${fmt(t.toll_amount)}</td></tr>`);
+        return rows.join('');
+      }).join('')}
+      <tr style="font-weight:700"><td colspan="3">รวม</td><td style="text-align:right">${fmt(tripTotal)}</td></tr></tbody>
     </table>` : ''}
 
-    ${r.trips?.length ? `
-    <strong>บันทึกการเดินทาง</strong>
+    ${r.expenses?.length ? `
+    <strong>รายการค่าใช้จ่ายอื่น</strong>
     <table style="margin-top:8px;margin-bottom:16px">
-      <thead><tr><th>ต้นทาง</th><th>ปลายทาง</th><th>ระยะ(กม.)</th><th>ค่าเดินทาง</th></tr></thead>
-      <tbody>${r.trips.map(t=>`<tr><td>${t.origin||'-'}</td><td>${t.destination||'-'}</td><td>${t.distance}</td><td>${fmt(t.amount)}</td></tr>`).join('')}
-      <tr style="font-weight:700"><td colspan="3">รวม</td><td>${fmt(tripTotal)}</td></tr></tbody>
+      <thead><tr><th>รายการ</th><th style="text-align:right">จำนวนเงิน</th></tr></thead>
+      <tbody>${r.expenses.map(e=>`<tr><td>${e.description||e.category||'-'}</td><td style="text-align:right">${fmt(e.amount)}</td></tr>`).join('')}
+      <tr style="font-weight:700"><td>รวม</td><td style="text-align:right">${fmt(expTotal)}</td></tr></tbody>
     </table>` : ''}
 
     <div style="background:#f7fafc;padding:12px;border-radius:8px;text-align:right;font-size:18px;font-weight:700">
@@ -1076,7 +1262,7 @@ window.viewPC = async (id) => {
 
   const role = currentProfile?.role;
   const btnArea = document.getElementById('approve-buttons');
-  let buttons = `<button class="btn btn-outline" onclick="printPC('${r.id}')">🖨️ พิมพ์</button>`;
+  let buttons = `<button class="btn btn-outline" onclick="printFromDetail('${r.id}')">🖨️ พิมพ์</button>`;
   if (['owner','admin','manager'].includes(role) && r.status === 'pending') {
     buttons += `
       <input class="form-control" id="approve-notes" placeholder="หมายเหตุ (ถ้ามี)" style="flex:1">
@@ -1219,109 +1405,913 @@ window.uploadExpensePhoto = async (input) => {
   loading(false);
 };
 
-window.addTripRow = (from='', to='', dist='') => {
-  const div = document.createElement('div');
-  div.className = 'item-row trip-row';
-  div.innerHTML = `
-    <input placeholder="ต้นทาง" value="${from}" oninput="updateTotals()">
-    <input placeholder="ปลายทาง" value="${to}" oninput="updateTotals()">
-    <input type="number" placeholder="กม." value="${dist}" oninput="updateTotals()" style="text-align:right">
-    <button class="btn-del-row" onclick="this.closest('.item-row').remove();updateTotals()">✕</button>`;
-  document.getElementById('trip-rows').appendChild(div);
+window.onTripTypeChange = (sel) => {
+  const row = sel.closest('.item-row');
+  const type = sel.value;
+  row.querySelector('[data-field="trip_type"]').value = type;
+  const typeLabel = {mile:'ค่าไมล์เรท',taxi:'ค่าแท็กซี่',purchase:'ซื้อของ',other:'อื่นๆ'};
+  const typeColor = {mile:'#1e40af',taxi:'#0369a1',purchase:'#065f46',other:'#6b21a8'};
+  const typeBg    = {mile:'#eff6ff',taxi:'#f0f9ff',purchase:'#f0fdf4',other:'#faf5ff'};
+  const badge = row.querySelector('[data-type-badge]');
+  if (badge) { badge.textContent = typeLabel[type]; badge.style.color = typeColor[type]; badge.style.background = typeBg[type]; }
+  row.querySelector('[data-section="mile-fields"]').style.display   = type==='mile'     ? '' : 'none';
+  row.querySelector('[data-section="simple-fields"]').style.display = type!=='mile'     ? '' : 'none';
+  row.querySelector('[data-section="toll-section"]').style.display  = (type==='mile'||type==='taxi') ? '' : 'none';
+  row.querySelector('[data-section="other-name"]').style.display    = type==='other'    ? '' : 'none';
+  // update photo label for taxi vs others
+  const photoLabel = row.querySelector('[data-section="simple-fields"] [data-photo-label]');
+  if (photoLabel) photoLabel.textContent = '📷 ' + (type==='taxi' ? 'รูปมิเตอร์/บิลแท็กซี่' : 'รูปใบเสร็จ');
   updateTotals();
 };
 
-window.updateTotals = () => {
-  let expTotal = 0;
-  document.querySelectorAll('#expense-rows .item-row').forEach(row => {
-    expTotal += parseFloat(row.querySelectorAll('input')[1].value) || 0;
+window.onTollToggle = (chk) => {
+  chk.closest('[data-section="toll-section"]').querySelector('[data-section="toll-fields"]').style.display = chk.checked ? '' : 'none';
+  updateTotals();
+};
+
+window.renumberTripRows = () => {
+  document.querySelectorAll('#trip-rows .item-row').forEach((row, i) => {
+    const n = i + 1;
+    const circle = row.querySelector('span[style*="border-radius:50%"]');
+    if (circle) circle.textContent = n;
+    const title = row.querySelector('span[style*="color:#1e3a8a"]');
+    if (title) title.textContent = `รายการที่ ${n}`;
   });
+};
+
+window.toggleTripRow = (hdr) => {
+  const row = hdr.closest('.item-row');
+  const body = row.querySelector('[data-section="row-body"]');
+  const icon = hdr.querySelector('[data-lucide]');
+  const collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  if (icon) { icon.setAttribute('data-lucide', collapsed ? 'chevron-up' : 'chevron-down'); lucide.createIcons(); }
+};
+
+window.onCategorySelect = (sel) => {
+  const row = sel.closest('.item-row');
+  const cat = sel.value;
+  const jobSel = row.querySelector('[data-field="job_select"]');
+  jobSel.innerHTML = '<option value="">-- เลือกงาน --</option>' +
+    jobsList.filter(j => j.category === cat || !cat)
+      .map(j => `<option value="${j.id}" data-code="${j.job_code}" data-name="${j.job_name}">${j.job_name} (${j.job_code})</option>`)
+      .join('');
+  row.querySelector('[data-field="job_code"]').value = '';
+  updatePreview();
+};
+
+window.onJobSelect = (sel) => {
+  const row = sel.closest('.item-row');
+  const opt = sel.options[sel.selectedIndex];
+  const code = opt?.getAttribute('data-code') || '';
+  const name = opt?.getAttribute('data-name') || '';
+  row.querySelector('[data-field="job_code"]').value = code;
+  updatePreview();
+};
+
+window.addTripRow = (t={}) => {
+  const rowNum = document.querySelectorAll('#trip-rows .item-row').length + 1;
+  const tripType = t.trip_type || 'mile';
+  const precat = jobsList.find(j=>j.job_code===t.job_code)?.category || '';
+  const filteredJobs = precat ? jobsList.filter(j=>j.category===precat) : jobsList;
+  const hasToll = !!(t.toll_amount || t.toll_photo_url);
+
+  const photoCard = (url, label, side, extraAttr='') => `
+    <div style="border-radius:8px;overflow:hidden;position:relative;height:130px" data-label="${label}" data-photo-type="${side}">
+      ${url
+        ? `<img src="${url}" class="photo-preview" data-url="${url}"
+              onclick="openModal('modal-photo');document.getElementById('lightbox-img').src='${url}'"
+              style="display:block;width:100%;height:130px;object-fit:cover;cursor:pointer">
+           <label style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);cursor:pointer;
+                  display:inline-flex;align-items:center;gap:5px;background:rgba(0,0,0,0.6);
+                  color:#fff;border:1.5px solid rgba(255,255,255,0.6);border-radius:20px;
+                  padding:4px 14px;font-size:12px;font-weight:600;white-space:nowrap">
+             <i data-lucide="camera" style="width:13px;height:13px"></i> เปลี่ยนรูป
+             <input type="file" accept="image/*" style="display:none" onchange="uploadTripPhoto(this,'${side}')">
+           </label>`
+        : `<label style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+                  width:100%;height:130px;cursor:pointer;border-radius:8px;
+                  background:#f8fafc;border:1.5px dashed #cbd5e1">
+             <span ${extraAttr} style="font-size:12px;font-weight:600;color:#374151">${label}</span>
+             <span style="font-size:22px;color:#94a3b8;line-height:1">+</span>
+             <span style="font-size:11px;color:#94a3b8">แตะเพื่อแนบรูป</span>
+             <input type="file" accept="image/*" style="display:none" onchange="uploadTripPhoto(this,'${side}')">
+           </label>`}
+    </div>`;
+
+  const typeLabel = {mile:'ค่าไมล์เรท',taxi:'ค่าแท็กซี่',purchase:'ซื้อของ',other:'อื่นๆ'};
+  const typeColor = {mile:'#1e40af',taxi:'#0369a1',purchase:'#065f46',other:'#6b21a8'};
+  const typeBg    = {mile:'#eff6ff',taxi:'#f0f9ff',purchase:'#f0fdf4',other:'#faf5ff'};
+
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.style.cssText = 'display:block;border:1.5px solid #e2e8f0;border-radius:12px;margin-bottom:10px;background:#fff;overflow:hidden';
+  div.innerHTML = `
+    <input type="hidden" data-field="job_code" value="${t.job_code||''}">
+    <input type="hidden" data-field="trip_type" value="${tripType}">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(135deg,#f8faff 0%,#eff6ff 100%);border-bottom:1px solid #e2e8f0;cursor:pointer"
+         onclick="toggleTripRow(this)">
+      <span style="width:26px;height:26px;border-radius:50%;background:#1e40af;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${rowNum}</span>
+      <span style="font-size:15px;font-weight:700;color:#1e3a8a;flex:1">รายการที่ ${rowNum}</span>
+      <span data-type-badge style="font-size:15px;font-weight:600;padding:2px 10px;border-radius:20px;background:${typeBg[tripType]};color:${typeColor[tripType]}">${typeLabel[tripType]}</span>
+      <button style="width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"
+              onclick="event.stopPropagation();toggleTripRow(this.closest('[onclick]'))" title="พับ/ขยาย">
+        <i data-lucide="chevron-up" style="width:16px;height:16px"></i>
+      </button>
+      <button style="width:28px;height:28px;border-radius:6px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"
+              onclick="event.stopPropagation();this.closest('.item-row').remove();updateTotals();renumberTripRows()" title="ลบรายการ">
+        <i data-lucide="trash-2" style="width:14px;height:14px"></i>
+      </button>
+    </div>
+
+    <!-- Body (collapsible) -->
+    <div data-section="row-body" style="padding:12px;display:none">
+
+    <!-- Row 1: วันที่ + ประเภทรายการ -->
+    <div style="display:grid;grid-template-columns:130px 1fr;gap:8px;margin-bottom:8px;align-items:end">
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:3px">วันที่</div>
+        <input placeholder="วันที่" value="${t.trip_date||''}" data-field="trip_date" type="text" class="form-control">
+      </div>
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:3px">ประเภทรายการ</div>
+        <select data-field="trip_type_sel" onchange="onTripTypeChange(this)" style="width:100%">
+          <option value="mile"  ${tripType==='mile'?'selected':''}>ค่าไมล์เรท</option>
+          <option value="taxi"  ${tripType==='taxi'?'selected':''}>ค่าแท็กซี่</option>
+          <option value="purchase" ${tripType==='purchase'?'selected':''}>ซื้อของ</option>
+          <option value="other" ${tripType==='other'?'selected':''}>อื่นๆ</option>
+        </select>
+      </div>
+    </div>
+    <!-- Row 2: ประเภทงาน + งาน/โปรเจค -->
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-bottom:8px;align-items:end">
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:3px">ประเภทงาน</div>
+        <select data-field="job_category" onchange="onCategorySelect(this)" style="width:100%">
+          <option value="">-- ประเภท --</option>
+          ${[...new Set(jobsList.map(j=>j.category).filter(Boolean))].map(c=>`<option value="${c}" ${precat===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:3px">งาน / โปรเจค</div>
+        <select data-field="job_select" onchange="onJobSelect(this)" style="width:100%">
+          <option value="">-- เลือกงาน --</option>
+          ${filteredJobs.map(j=>`<option value="${j.id}" data-code="${j.job_code}" data-name="${j.job_name}" ${t.job_code===j.job_code?'selected':''}>${j.job_name} (${j.job_code})</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <!-- รายละเอียด (ทุกประเภท) -->
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;color:#888;margin-bottom:3px">รายละเอียด</div>
+      <input placeholder="เช่น เดินทางไปประชุม, ซื้ออุปกรณ์ไฟฟ้า" value="${t.location_name||''}" data-field="location_name" class="form-control">
+    </div>
+
+    <!-- อื่นๆ: ระบุชื่อประเภท -->
+    <div data-section="other-name" style="margin-bottom:8px;${tripType==='other'?'':'display:none'}">
+      <div style="font-size:11px;color:#888;margin-bottom:3px">ระบุประเภท</div>
+      <input placeholder="เช่น ค่าที่พัก, ค่าอาหาร" value="${t.origin||''}" data-field="origin" style="width:100%;box-sizing:border-box">
+    </div>
+
+    <!-- ค่าไมล์เรท: odometer -->
+    <div data-section="mile-fields" style="${tripType==='mile'?'':'display:none'}">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <div style="font-size:11px;color:#888;margin-bottom:3px">เลขไมล์ก่อน</div>
+          <input type="number" placeholder="กม." value="${t.odometer_before||''}" data-field="odometer_before" oninput="calcTripAmt(this)" class="form-control">
+        </div>
+        <div>
+          <div style="font-size:11px;color:#888;margin-bottom:3px">เลขไมล์หลัง</div>
+          <input type="number" placeholder="กม." value="${t.odometer_after||''}" data-field="odometer_after" oninput="calcTripAmt(this)" class="form-control">
+        </div>
+        <div>
+          <div style="font-size:11px;color:#888;margin-bottom:3px">ระยะทาง (กม.)</div>
+          <input type="number" placeholder="0" value="${t.distance||''}" data-field="distance" readonly class="form-control" style="background:#f0f4f8">
+        </div>
+        <div>
+          <div style="font-size:11px;color:#888;margin-bottom:3px">ค่าไมล์เรท (฿)</div>
+          <input type="number" placeholder="0" value="${t.amount||''}" data-field="amount" oninput="updateTotals()" readonly class="form-control" style="background:#f0f4f8">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        ${photoCard(t.photo_before_url,'รูปไมล์ก่อนเดินทาง','before')}
+        ${photoCard(t.photo_after_url,'รูปไมล์หลังเดินทาง','after')}
+      </div>
+    </div>
+
+    <!-- แท็กซี่/ซื้อของ/อื่นๆ: จำนวนเงิน + รูป -->
+    <div data-section="simple-fields" style="${tripType!=='mile'?'':'display:none'}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:end">
+        <div>
+          <div style="font-size:11px;color:#888;margin-bottom:3px">จำนวนเงิน (฿)</div>
+          <input type="number" placeholder="0.00" value="${tripType!=='mile'?t.amount||'':''}" data-field="amount" oninput="updateTotals()" class="form-control">
+        </div>
+        <div></div>
+      </div>
+      ${tripType==='taxi' ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        ${photoCard(t.photo_before_url, 'รูปมิเตอร์/บิลแท็กซี่', 'before', 'data-photo-label')}
+        <div></div>
+      </div>` : ''}
+    </div>
+
+    <!-- ค่าทางด่วน (ไมล์เรท + แท็กซี่) -->
+    <div data-section="toll-section" style="${(tripType==='mile'||tripType==='taxi')?'':'display:none'}">
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin-bottom:6px">
+        <input type="checkbox" data-field="has_toll" ${hasToll?'checked':''} onchange="onTollToggle(this)" style="width:15px;height:15px">
+        มีค่าทางด่วน
+      </label>
+      <div data-section="toll-fields" style="${hasToll?'':'display:none'}">
+        <div style="max-width:200px">
+          <div style="font-size:11px;color:#888;margin-bottom:3px">ค่าทางด่วน (฿)</div>
+          <input type="number" placeholder="0.00" value="${t.toll_amount||''}" data-field="toll_amount" oninput="updateTotals()" class="form-control">
+        </div>
+      </div>
+    </div>
+
+    <!-- รูปไลน์ขออนุมัติ -->
+    <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0">
+      <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:600">📱 รูปไลน์ขออนุมัติ</div>
+      <div style="max-width:220px">
+        <div style="border-radius:8px;overflow:hidden;position:relative;height:130px" data-label="รูปไลน์ขออนุมัติ" data-photo-type="line_approval">
+          ${t.line_approval_url
+            ? `<img src="${t.line_approval_url}" class="photo-preview" data-url="${t.line_approval_url}"
+                  onclick="openModal('modal-photo');document.getElementById('lightbox-img').src='${t.line_approval_url}'"
+                  style="display:block;width:100%;height:130px;object-fit:cover;cursor:pointer">
+               <label style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);cursor:pointer;
+                      display:inline-flex;align-items:center;gap:5px;background:rgba(0,0,0,0.6);
+                      color:#fff;border:1.5px solid rgba(255,255,255,0.6);border-radius:20px;
+                      padding:4px 14px;font-size:12px;font-weight:600;white-space:nowrap">
+                 <i data-lucide="camera" style="width:13px;height:13px"></i> เปลี่ยนรูป
+                 <input type="file" accept="image/*" style="display:none" onchange="uploadTripPhoto(this,'line_approval')">
+               </label>`
+            : `<label style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+                      width:100%;height:130px;cursor:pointer;border-radius:8px;
+                      background:#f8fafc;border:1.5px dashed #cbd5e1">
+                 <span style="font-size:12px;font-weight:600;color:#374151">รูปไลน์ขออนุมัติ</span>
+                 <span style="font-size:22px;color:#94a3b8;line-height:1">+</span>
+                 <span style="font-size:11px;color:#94a3b8">แตะเพื่อแนบรูป</span>
+                 <input type="file" accept="image/*" style="display:none" onchange="uploadTripPhoto(this,'line_approval')">
+               </label>`}
+        </div>
+      </div>
+    </div>
+
+    </div>`; /* end row-body */
+  document.getElementById('trip-rows').appendChild(div);
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+  // init flatpickr on the new trip_date field
+  const newDateEl = div.querySelector('[data-field="trip_date"]');
+  if (newDateEl && typeof flatpickr !== 'undefined') {
+    flatpickr(newDateEl, {
+      locale: 'th',
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'd/m/Y',
+      allowInput: true,
+      defaultDate: newDateEl.value || null,
+    });
+  }
+  updateTotals();
+};
+
+window.calcTripAmt = (input) => {
+  const row = input.closest('.item-row');
+  const before = parseFloat(row.querySelector('[data-field="odometer_before"]').value) || 0;
+  const after  = parseFloat(row.querySelector('[data-field="odometer_after"]').value)  || 0;
+  const dist = Math.max(0, after - before);
+  row.querySelector('[data-field="distance"]').value = dist || '';
+  row.querySelector('[data-field="amount"]').value   = dist ? (dist * 5).toFixed(2) : '';
+  updateTotals();
+};
+
+window.uploadTripPhoto = async (input, type) => {
+  const file = input.files[0];
+  if (!file) return;
+  loading(true);
+  try {
+    const ext = file.name.split('.').pop();
+    const path = `trips/${Date.now()}_${type}.${ext}`;
+    const { data, error } = await sb.storage.from('receipts').upload(path, file, { upsert: true });
+    if (error) throw error;
+    const { data: urlData } = sb.storage.from('receipts').getPublicUrl(data.path);
+    const url = urlData.publicUrl;
+    const card = input.closest('div[data-label]');
+    const labelText = card.getAttribute('data-label') || '';
+    const onchangeAttr = input.getAttribute('onchange');
+    card.innerHTML = `
+      <img src="${url}" class="photo-preview" data-url="${url}"
+           onclick="openModal('modal-photo');document.getElementById('lightbox-img').src='${url}'"
+           style="display:block;width:100%;height:130px;object-fit:cover;cursor:pointer">
+      <label style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);cursor:pointer;
+             display:inline-flex;align-items:center;gap:5px;background:rgba(0,0,0,0.6);
+             color:#fff;border:1.5px solid rgba(255,255,255,0.6);border-radius:20px;
+             padding:4px 14px;font-size:12px;font-weight:600;white-space:nowrap">
+        <i data-lucide="camera" style="width:13px;height:13px"></i> เปลี่ยนรูป
+        <input type="file" accept="image/*" style="display:none" onchange="${onchangeAttr}">
+      </label>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    if (typeof updatePreview === 'function') updatePreview();
+    toast('อัปโหลดสำเร็จ ✓');
+  } catch(e) { toast('อัปโหลดไม่สำเร็จ: ' + e.message); }
+  loading(false);
+};
+
+window.updateTotals = () => {
   let tripTotal = 0;
   document.querySelectorAll('#trip-rows .item-row').forEach(row => {
-    tripTotal += (parseFloat(row.querySelectorAll('input')[2].value) || 0) * 5;
+    tripTotal += parseFloat(row.querySelector('[data-field="amount"]')?.value) || 0;
+    const hasToll = row.querySelector('[data-field="has_toll"]')?.checked;
+    if (hasToll) tripTotal += parseFloat(row.querySelector('[data-field="toll_amount"]')?.value) || 0;
   });
-  document.getElementById('exp-subtotal').textContent = fmt(expTotal);
   document.getElementById('trip-subtotal').textContent = fmt(tripTotal);
-  document.getElementById('pc-grand-total').textContent = fmt(expTotal + tripTotal);
+  document.getElementById('pc-grand-total').textContent = fmt(tripTotal);
+};
+
+// ── Jobs Management ───────────────────────────────────────────
+window.loadJobs = async () => {
+  const { data } = await sb.from('jobs').select('*, companies(name)').order('job_name');
+  jobsList = (data || []).filter(j => j.is_active);
+  const tbody = document.getElementById('job-list');
+  if (!tbody) return;
+  tbody.innerHTML = (data || []).map(j => `
+    <tr>
+      <td>${j.category || '-'}</td>
+      <td>${j.job_name}</td>
+      <td><span style="font-weight:700;color:#1e40af">${j.job_code}</span></td>
+      <td>${j.companies?.name || '-'}</td>
+      <td><span class="badge ${j.is_active ? 'badge-success' : 'badge-gray'}">${j.is_active ? 'เปิด' : 'ปิด'}</span></td>
+      <td><button class="btn btn-sm btn-outline" onclick="openJobForm('${j.id}')">แก้ไข</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteJob('${j.id}')">ลบ</button></td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#aaa">ยังไม่มีงาน</td></tr>';
+};
+
+window.openJobForm = async (id = null) => {
+  document.getElementById('job-id').value = id || '';
+  document.getElementById('modal-job-title').textContent = id ? 'แก้ไขงาน' : 'เพิ่มงาน / โปรเจค';
+  document.getElementById('job-category').value = '';
+  document.getElementById('job-name').value = '';
+  document.getElementById('job-code').value = '';
+  document.getElementById('job-desc').value = '';
+  document.getElementById('job-active').checked = true;
+  const sel = document.getElementById('job-company');
+  sel.innerHTML = companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  if (id) {
+    const { data } = await sb.from('jobs').select('*').eq('id', id).single();
+    if (data) {
+      document.getElementById('job-category').value = data.category || '';
+      document.getElementById('job-name').value = data.job_name;
+      document.getElementById('job-code').value = data.job_code;
+      document.getElementById('job-desc').value = data.description || '';
+      document.getElementById('job-active').checked = data.is_active;
+      sel.value = data.company_id;
+    }
+  }
+  openModal('modal-job');
+};
+
+window.saveJob = async () => {
+  const id = document.getElementById('job-id').value;
+  const record = {
+    category: document.getElementById('job-category').value || null,
+    job_name: document.getElementById('job-name').value,
+    job_code: document.getElementById('job-code').value,
+    description: document.getElementById('job-desc').value,
+    company_id: document.getElementById('job-company').value,
+    is_active: document.getElementById('job-active').checked,
+  };
+  if (!record.job_name || !record.job_code) { toast('กรุณากรอกชื่องานและรหัส Job'); return; }
+  loading(true);
+  if (id) await sb.from('jobs').update(record).eq('id', id);
+  else await sb.from('jobs').insert(record);
+  loading(false);
+  toast('บันทึกงานแล้ว ✓');
+  closeModal('modal-job');
+  loadJobs();
+};
+
+window.deleteJob = async (id) => {
+  if (!confirm('ยืนยันการลบงานนี้?')) return;
+  await sb.from('jobs').delete().eq('id', id);
+  toast('ลบงานแล้ว');
+  loadJobs();
+};
+
+// ── Live Preview ──────────────────────────────────────────────
+let previewOpen = false;
+
+window.printPreview = () => {
+  const content = document.getElementById('pc-preview-content')?.innerHTML || '';
+  const printCSS = `
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Sarabun', sans-serif; font-size: 11pt; color: #000; background: #fff; width: 100%; }
+    @page { size: A4; margin: 14mm 14mm; }
+    .page-sep { display: none; }
+    .attach-page { page-break-before: always; width: 100%; height: 269mm; display: flex; flex-direction: column; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { font-family: 'Sarabun', sans-serif; }
+    img { max-width: 100%; }
+    * { max-width: none !important; }
+  `;
+  let iframe = document.getElementById('print-frame');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'print-frame';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none';
+    document.body.appendChild(iframe);
+  }
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open();
+  doc.write(`<!DOCTYPE html><html lang="th"><head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>${printCSS}</style>
+</head><body>${content}</body></html>`);
+  doc.close();
+  setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 700);
+};
+
+window.togglePCPreview = () => {
+  previewOpen = !previewOpen;
+  const panel = document.getElementById('pc-preview-panel');
+  const box   = document.getElementById('modal-pc-box');
+  const btn   = document.getElementById('btn-preview-toggle');
+  panel.style.display = previewOpen ? 'block' : 'none';
+  box.classList.toggle('preview-open', previewOpen);
+  btn.style.background = previewOpen ? '#1e40af' : '';
+  btn.style.color = previewOpen ? '#fff' : '';
+  if (previewOpen) updatePreview();
+};
+
+window.updatePreview = () => {
+  if (!previewOpen) return;
+  const docNo   = document.getElementById('pc-doc-no')?.value || '';
+  const docDate = document.getElementById('pc-date')?.value || '';
+  const purpose = document.getElementById('pc-purpose')?.value || '';
+  const dept    = document.getElementById('pc-department')?.value || '';
+  const div_    = document.getElementById('pc-division')?.value || '';
+  const unit    = document.getElementById('pc-unit-code')?.value || '';
+  const isSO    = document.getElementById('pc-is-so')?.checked;
+  const soNo    = document.getElementById('pc-so-number')?.value || '';
+  const isProj  = document.getElementById('pc-is-project')?.checked;
+  const projNo  = document.getElementById('pc-project-number')?.value || '';
+  const coSel   = document.getElementById('pc-company');
+  const coName  = coSel?.options[coSel?.selectedIndex]?.text || '';
+
+  const typeLabel = {mile:'ค่าไมล์เรท', taxi:'ค่าแท็กซี่', purchase:'ซื้อของ', other:'อื่นๆ'};
+
+  // collect trips
+  const trips = [];
+  document.querySelectorAll('#trip-rows .item-row').forEach(row => {
+    const g = f => row.querySelector(`[data-field="${f}"]`)?.value || '';
+    const jobSel = row.querySelector('[data-field="job_select"]');
+    const jobName = jobSel?.options[jobSel?.selectedIndex]?.getAttribute('data-name') || '';
+    const hasToll = row.querySelector('[data-field="has_toll"]')?.checked || false;
+    trips.push({
+      trip_type: g('trip_type') || 'mile',
+      location_name: g('location_name'),
+      job_code: g('job_code'),
+      job_name: jobName,
+      trip_date: g('trip_date'),
+      amount: parseFloat(g('amount')) || 0,
+      has_toll: hasToll,
+      toll_amount: hasToll ? (parseFloat(g('toll_amount')) || 0) : 0,
+      origin: g('origin'),
+    });
+  });
+
+  // group by job_code
+  const groups = {};
+  trips.forEach(t => {
+    const key = t.job_code || '__';
+    if (!groups[key]) groups[key] = { job_name: t.job_name, job_code: t.job_code, trips: [] };
+    groups[key].trips.push(t);
+  });
+
+  const B = s => `<td style="border:1px solid #000;padding:3px 7px">${s}</td>`;
+  const BC = s => `<td style="border:1px solid #000;padding:3px 7px;text-align:center">${s}</td>`;
+  const BR = s => `<td style="border:1px solid #000;padding:3px 7px;text-align:center">${s}</td>`;
+
+  let rows = '';
+  Object.values(groups).forEach(g => {
+    const header = g.job_name
+      ? `${g.job_name}${g.job_code ? ' ('+g.job_code+')' : ''}`
+      : (g.job_code || 'ทั่วไป');
+    rows += `<tr style="background:#f3f4f6"><td style="border:1px solid #000;padding:3px 7px"></td><td style="border:1px solid #000;padding:3px 7px;font-weight:700">▶ ${header}</td><td style="border:1px solid #000;padding:3px 7px"></td></tr>`;
+    g.trips.forEach(t => {
+      const d = t.trip_date ? t.trip_date.split('-').reverse().join('/') : '';
+      const label = typeLabel[t.trip_type] || t.trip_type;
+      const desc = t.location_name ? `${label} – ${t.location_name}` : label;
+      rows += `<tr>${BC(d)}${B(desc)}${BR(t.amount > 0 ? fmt(t.amount) : '')}</tr>`;
+      if (t.has_toll && t.toll_amount > 0) {
+        const tdesc = t.location_name ? `ค่าทางด่วน – ${t.location_name}` : 'ค่าทางด่วน';
+        rows += `<tr>${B('')}${B(tdesc)}${BR(fmt(t.toll_amount))}</tr>`;
+      }
+    });
+  });
+
+  const grandTotal = trips.reduce((a,t) => a + t.amount + t.toll_amount, 0);
+  const displayDate = docDate ? docDate.split('-').reverse().join('/') : '';
+
+  // ── Attachment pages ──
+  const tlabel = {mile:'ค่าไมล์เรท',taxi:'ค่าแท็กซี่',purchase:'ซื้อของ',other:'อื่นๆ'};
+  let attachments = '';
+  document.querySelectorAll('#trip-rows .item-row').forEach((row, i) => {
+    const g = f => row.querySelector(`[data-field="${f}"]`)?.value || '';
+    const type = g('trip_type') || 'mile';
+    const loc  = g('location_name');
+    const date = g('trip_date') ? g('trip_date').split('-').reverse().join('/') : '';
+    const amt  = parseFloat(g('amount')) || 0;
+    const hasToll = row.querySelector('[data-field="has_toll"]')?.checked;
+    const toll = hasToll ? (parseFloat(g('toll_amount')) || 0) : 0;
+    const ob   = g('odometer_before'), oa = g('odometer_after'), dist = g('distance');
+    const jobSel = row.querySelector('[data-field="job_select"]');
+    const jobName = jobSel?.options[jobSel?.selectedIndex]?.getAttribute('data-name') || '';
+    const jobCode = g('job_code');
+    const getUrl = (photoType) => row.querySelector(`[data-photo-type="${photoType}"] img.photo-preview`)?.getAttribute('data-url') || '';
+
+    const typeDesc = (hasToll && (type==='mile'||type==='taxi')) ? `${tlabel[type]}และค่าทางด่วน` : tlabel[type];
+    const jobLine  = jobName ? ` | Job: ${jobCode}` : (jobCode ? ` | Job: ${jobCode}` : '');
+    const sumLine  = type==='mile'
+      ? `🚗 ไมล์: ${ob} – ${oa} = <b>${dist} กม. × 5 = ${fmt(amt)} บาท</b>${hasToll?` &nbsp;🛣️ ทางด่วน: <b>${fmt(toll)} บาท</b>`:''}`
+      : `จำนวนเงิน: <b>${fmt(amt)} บาท</b>${hasToll?` &nbsp;ทางด่วน: <b>${fmt(toll)} บาท</b>`:''}`;
+
+    const photoBox = (url, lbl, h=140, fit='cover') => url
+      ? `<img src="${url}" style="width:100%;height:${h}px;object-fit:${fit};border:1px solid #ccc;border-radius:4px;display:block;background:#f5f5f5">`
+      : `<div style="border:1px dashed #ccc;height:${h}px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:11px;border-radius:4px">(${lbl})</div>`;
+
+    const sectionLabel = (icon, text) =>
+      `<div style="font-size:13px;font-weight:700;color:#333;margin-bottom:4px;letter-spacing:0.3px">${icon} ${text}</div>`;
+
+    const lineApprovalUrl = getUrl('line_approval');
+
+    // ปรับความสูงตามจำนวนส่วนในหน้า: line(1) + mile(1) + toll(0|1) = 2-3 sections
+    const sectionCount = 2 + (hasToll ? 1 : 0);
+    const SEC_H = sectionCount >= 3 ? 280 : 280;
+    const imgBox = (url, h=SEC_H, fit='cover') => url
+      ? `<img src="${url}" style="width:100%;height:${h}px;object-fit:${fit};border:1px solid #ccc;border-radius:4px;display:block;background:#f0f0f0">`
+      : `<div style="width:100%;height:${h}px;border:1px dashed #ccc;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:11px">(ยังไม่มีรูป)</div>`;
+
+    const mileRow = type==='mile' ? `
+      <div style="margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            ${sectionLabel('📸','รูปไมล์ก่อนเดินทาง')}
+            ${imgBox(getUrl('before'))}
+          </div>
+          <div>
+            ${sectionLabel('📸','รูปไมล์หลังเดินทาง')}
+            ${imgBox(getUrl('after'))}
+          </div>
+        </div>
+      </div>` : `
+      ${type==='purchase' ? `
+      <div style="margin-bottom:8px">
+        ${sectionLabel('📎','พื้นที่ติดใบเสร็จตัวจริง')}
+        <div style="height:${SEC_H}px;border:2px dashed #bbb;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#bbb;gap:8px;font-size:12px">
+          <span style="font-size:24px">📄</span>
+          <span>ติดใบเสร็จต้นฉบับที่นี่</span>
+        </div>
+      </div>` : `
+      <div style="margin-bottom:8px">
+        ${sectionLabel('📸', type==='taxi'?'รูปมิเตอร์/บิลแท็กซี่':'รูปใบเสร็จ')}
+        <div style="width:50%">${imgBox(getUrl('before'))}</div>
+      </div>`}`;
+
+    const tollArea = hasToll ? `
+      <div style="margin-bottom:8px">
+        ${sectionLabel('📎','พื้นที่ติดใบเสร็จค่าทางด่วนตัวจริง')}
+        <div style="height:${SEC_H}px;border:2px dashed #bbb;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:11px">
+          ติดใบเสร็จต้นฉบับที่นี่
+        </div>
+      </div>` : '';
+
+    attachments += `
+    <div class="attach-page" style="font-family:'Sarabun',sans-serif;font-size:13px;color:#000;width:100%;padding:0;margin:0;box-sizing:border-box">
+      <div class="page-sep" style="border-top:2px dashed #999;margin:8px 0;text-align:center;position:relative">
+        <span style="background:#fff;padding:0 8px;color:#999;font-size:11px;position:relative;top:-1px">— หน้าใหม่ —</span>
+      </div>
+
+      <!-- ส่วนที่ 1: รายละเอียด -->
+      <div style="font-size:14px;font-weight:800;border-bottom:2px solid #000;padding-bottom:3px;margin-bottom:6px">
+        เอกสารแนบ — ${typeDesc} (รายการที่ ${i+1})
+      </div>
+      <div style="border:1.5px solid #333;border-radius:4px;padding:6px 10px;margin-bottom:8px;background:#f8f9fa;font-size:13px;flex-shrink:0">
+        <div style="font-weight:700;margin-bottom:2px">${date}${loc?' — '+loc:''}${jobLine}</div>
+        <div>${sumLine}</div>
+      </div>
+
+      <!-- ส่วนที่ 2: รูปไลน์ขออนุมัติ -->
+      <div style="margin-bottom:8px">
+        ${sectionLabel('📱','รูปไลน์ขออนุมัติ')}
+        ${imgBox(lineApprovalUrl, SEC_H, 'contain')}
+      </div>
+
+      <!-- ส่วนที่ 3: รูปไมล์ก่อน/หลัง ซ้าย-ขวา -->
+      ${mileRow}
+
+      <!-- ส่วนที่ 4: พื้นที่ติดใบค่าทางด่วน -->
+      ${tollArea}
+    </div>`;
+  });
+
+  document.getElementById('pc-preview-content').innerHTML = `
+  <div style="font-family:'Sarabun',sans-serif;font-size:12px;color:#000;padding:4px">
+
+    <!-- เลขที่/วันที่ -->
+    <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:2px;align-items:flex-end">
+      <div style="display:flex;align-items:baseline;gap:4px;width:150px">
+        <span style="white-space:nowrap">เลขที่ใบเบิก</span>
+        <span style="flex:1;border-bottom:1px solid #000">&nbsp;</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:4px;width:150px">
+        <span style="white-space:nowrap">วันที่</span>
+        <span style="flex:1;border-bottom:1px solid #000;text-align:center">${displayDate}</span>
+      </div>
+    </div>
+
+    <!-- บริษัท + ชื่อใบ -->
+    <div style="text-align:center;margin-bottom:6px">
+      <div style="font-size:20px;font-weight:800;letter-spacing:.5px">${
+        coName === 'TCCL' ? '<span style="color:#1a5c2a">TCCL</span>'
+        : (coName||'').toLowerCase().includes('yipintsoi') ? '<span style="color:#000">YIPINTSOI</span> <span style="color:#e07000">ENERGY</span>'
+        : (coName || 'บริษัท')
+      }</div>
+      <div style="display:inline-block;border:2px solid #1a3a8f;padding:3px 18px;margin-top:4px;font-size:14px;font-weight:700;color:#1a3a8f">
+        ใบเบิกเงินสดย่อย (PETTY CASH)
+      </div>
+    </div>
+
+    <!-- ส่วน/ฝ่าย/รหัส -->
+    <div style="display:flex;align-items:baseline;gap:4px;margin-top:16px;margin-bottom:4px">
+      <span style="white-space:nowrap">ส่วน</span>
+      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${dept||'&nbsp;'}</span>
+      <span style="white-space:nowrap;margin-left:8px">ฝ่าย</span>
+      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${div_||'&nbsp;'}</span>
+      <span style="white-space:nowrap;margin-left:8px">รหัสหน่วยงาน</span>
+      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${unit||'&nbsp;'}</span>
+    </div>
+
+    <!-- วัตถุประสงค์ -->
+    <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:20px">
+      <span style="white-space:nowrap">วัตถุประสงค์ค่าใช้จ่าย</span>
+      <span style="flex:2;min-width:60px;border-bottom:1px solid #000;padding:4px 4px 2px">${purpose||'&nbsp;'}</span>
+      <span style="white-space:nowrap;margin-left:8px">☐ SO</span>
+      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${isSO?soNo:'&nbsp;'}</span>
+      <span style="white-space:nowrap;margin-left:8px">☐ Project</span>
+      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${isProj?projNo:'&nbsp;'}</span>
+    </div>
+
+    <!-- ตาราง -->
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px">
+      <thead>
+        <tr>
+          <th style="border:1px solid #000;padding:4px 7px;width:16%;text-align:center;background:#e8e8e8;color:#000;font-weight:700">วันที่</th>
+          <th style="border:1px solid #000;padding:4px 7px;text-align:center;background:#e8e8e8;color:#000;font-weight:700">รายการ</th>
+          <th style="border:1px solid #000;padding:4px 7px;width:20%;text-align:center;background:#e8e8e8;color:#000;font-weight:700">จำนวนเงิน (บาท)</th>
+        </tr>
+      </thead>
+      <tbody>${rows || `<tr><td colspan="3" style="border:1px solid #000;padding:12px;text-align:center;color:#aaa">ยังไม่มีรายการ</td></tr>`}</tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" style="border:1px solid #000;padding:4px 7px;text-align:right;font-weight:700">รวมทั้งสิ้น</td>
+          <td style="border:1px solid #000;padding:4px 7px;text-align:center;font-weight:700">${fmt(grandTotal)}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- ลายเซ็น -->
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <tr>
+        ${['ผู้ขอเบิก','ผู้ตรวจสอบ','ผู้อนุมัติ','ผู้จ่ายเงิน','ผู้รับเงิน'].map(s=>`
+          <td style="border:1px solid #000;padding:6px 4px 14px;text-align:center;width:20%">
+            <div style="height:40px"></div>
+            <div style="padding-top:3px">
+              <div style="height:4px"></div>
+              <div style="display:flex;justify-content:center;margin-bottom:4px"><div style="width:85%;border-bottom:1px solid #000"></div></div>
+              <div style="text-align:center;margin-bottom:6px"><b>${s}</b></div>
+              <div style="display:flex;align-items:baseline;gap:2px;justify-content:center">
+                <span style="white-space:nowrap">วันที่</span>
+                <span style="width:60px;border-bottom:1px solid #000;display:inline-block">&nbsp;</span>
+              </div>
+            </div>
+          </td>`).join('')}
+      </tr>
+    </table>
+  </div>
+
+  ${attachments}`;
+
 };
 
 // ── Print ─────────────────────────────────────────────────────
 window.printPC = async (id) => {
   loading(true);
   const { data: r } = await sb.from('petty_cash')
-    .select('*, companies(name), profiles!created_by(full_name), expenses(*), trips(*)')
+    .select('*, companies(name,short_name), profiles!created_by(full_name), expenses(*), trips(*)')
     .eq('id', id).single();
   loading(false);
 
-  const expTotal = (r.expenses||[]).reduce((a,e)=>a+Number(e.amount),0);
-  const tripTotal = (r.trips||[]).reduce((a,t)=>a+Number(t.amount),0);
+  const trips = r.trips || [];
+  const exps  = r.expenses || [];
+  const tripTotal = trips.reduce((a,t)=>a+Number(t.amount||0),0);
+  const grandTotal = Number(r.total_amount || 0);
 
-  const expRows = (r.expenses||[]).map((e,i) => `
-    <tr>
-      <td>${i+1}</td>
-      <td>${e.description}</td>
+  // Group trips by location_name for table display
+  const jobGroups = {};
+  trips.forEach(t => {
+    const key = t.location_name || 'ทั่วไป';
+    if (!jobGroups[key]) jobGroups[key] = [];
+    jobGroups[key].push(t);
+  });
+
+  let mainRows = '';
+  let rowNum = 1;
+  Object.entries(jobGroups).forEach(([loc, tList]) => {
+    const groupTotal = tList.reduce((a,t)=>a+Number(t.amount||0),0);
+    mainRows += `<tr style="background:#f0f4f8;font-weight:600">
+      <td colspan="3">▶ ${loc}</td>
+      <td style="text-align:right">${fmt(groupTotal)}</td>
+    </tr>`;
+    tList.forEach(t => {
+      mainRows += `<tr>
+        <td style="text-align:center">${rowNum++}</td>
+        <td>${t.origin||'-'}</td>
+        <td>${t.job_code||''}</td>
+        <td style="text-align:right">${fmt(t.amount)}</td>
+      </tr>`;
+    });
+  });
+  exps.forEach((e,i) => {
+    mainRows += `<tr>
+      <td style="text-align:center">${rowNum++}</td>
+      <td colspan="2">${e.description||'-'}</td>
       <td style="text-align:right">${fmt(e.amount)}</td>
-      <td style="text-align:center">${e.photo_url ? `<img src="${e.photo_url}" style="height:40px;border-radius:4px">` : '-'}</td>
-    </tr>`).join('');
+    </tr>`;
+  });
 
-  const tripRows = (r.trips||[]).map((t,i) => `
-    <tr>
-      <td>${i+1}</td>
-      <td>${t.origin||'-'}</td>
-      <td>${t.destination||'-'}</td>
-      <td style="text-align:right">${t.distance} กม.</td>
-      <td style="text-align:right">${fmt(t.amount)}</td>
-    </tr>`).join('');
+  // Mile rate attachment pages (1 trip per page)
+  const milePages = trips.map((t,i) => `
+    <div class="print-page">
+      <div class="print-page-header">
+        <div class="print-co-name">${r.companies?.name||''}</div>
+        <div class="print-doc-title">ใบแนบ อัตราค่าพาหนะ (ไมล์เรท)</div>
+        <div class="print-doc-ref">เลขที่: ${r.doc_no} | วันที่: ${fmtDate(r.doc_date)}</div>
+      </div>
+      <table class="print-table" style="margin-bottom:12px">
+        <tr><th style="width:40%">รายการ</th><th>ข้อมูล</th></tr>
+        <tr><td>ชื่อสถานที่/งาน</td><td>${t.location_name||'-'}</td></tr>
+        <tr><td>รหัส Job</td><td>${t.job_code||'-'}</td></tr>
+        <tr><td>เส้นทาง</td><td>${t.origin||'-'}</td></tr>
+        <tr><td>วันที่เดินทาง</td><td>${t.trip_date ? fmtDate(t.trip_date) : '-'}</td></tr>
+        <tr><td>เลขไมล์ก่อน (กม.)</td><td>${t.odometer_before??'-'}</td></tr>
+        <tr><td>เลขไมล์หลัง (กม.)</td><td>${t.odometer_after??'-'}</td></tr>
+        <tr><td>ระยะทาง (กม.)</td><td>${t.distance??'-'}</td></tr>
+        <tr><td>ค่าไมล์เรท (฿5/กม.)</td><td style="font-weight:700">${fmt(t.amount)}</td></tr>
+      </table>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px">
+        <div>
+          <div style="font-weight:600;margin-bottom:6px;font-size:12px">📷 รูปไมล์ก่อนเดินทาง</div>
+          ${t.photo_before_url ? `<img src="${t.photo_before_url}" style="width:100%;max-height:180px;object-fit:contain;border:1px solid #ddd;border-radius:6px">` : '<div style="height:180px;border:1px dashed #ccc;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px">ไม่มีรูป</div>'}
+        </div>
+        <div>
+          <div style="font-weight:600;margin-bottom:6px;font-size:12px">📷 รูปไมล์หลังเดินทาง</div>
+          ${t.photo_after_url ? `<img src="${t.photo_after_url}" style="width:100%;max-height:180px;object-fit:contain;border:1px solid #ddd;border-radius:6px">` : '<div style="height:180px;border:1px dashed #ccc;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px">ไม่มีรูป</div>'}
+        </div>
+      </div>
+    </div>`).join('');
+
+  // Expense attachment pages (per receipt)
+  const expPages = exps.map((e,i) => `
+    <div class="print-page">
+      <div class="print-page-header">
+        <div class="print-co-name">${r.companies?.name||''}</div>
+        <div class="print-doc-title">ใบแนบ รายการค่าใช้จ่าย</div>
+        <div class="print-doc-ref">เลขที่: ${r.doc_no} | วันที่: ${fmtDate(r.doc_date)}</div>
+      </div>
+      <table class="print-table" style="margin-bottom:12px">
+        <tr><th style="width:40%">รายการ</th><th>ข้อมูล</th></tr>
+        <tr><td>รายการ</td><td>${e.description||'-'}</td></tr>
+        ${e.job_code ? `<tr><td>รหัส Job</td><td>${e.job_code}</td></tr>` : ''}
+        <tr><td>จำนวนเงิน</td><td style="font-weight:700">${fmt(e.amount)}</td></tr>
+      </table>
+      <div style="margin-top:8px">
+        <div style="font-weight:600;margin-bottom:6px;font-size:12px">📷 ใบเสร็จ / หลักฐาน</div>
+        ${e.photo_url ? `<img src="${e.photo_url}" style="max-width:100%;max-height:300px;object-fit:contain;border:1px solid #ddd;border-radius:6px">` : '<div style="height:200px;border:1px dashed #ccc;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px">ไม่มีรูปใบเสร็จ</div>'}
+      </div>
+    </div>`).join('');
 
   document.getElementById('print-content').innerHTML = `
-    <div class="print-doc">
-      <div class="print-header">
-        <h2>ใบเบิกเงินสดย่อย</h2>
-        <p>${r.companies?.name || ''}</p>
-      </div>
-      <div class="print-meta">
-        <div><strong>เลขที่:</strong> ${r.doc_no}</div>
-        <div><strong>วันที่:</strong> ${fmtDate(r.doc_date)}</div>
-        <div><strong>ผู้เบิก:</strong> ${r.profiles?.full_name||'-'}</div>
-        <div><strong>จุดประสงค์:</strong> ${r.purpose||'-'}</div>
+    <style>
+      .print-page { page-break-after: always; padding: 20px; font-family: 'Sarabun', sans-serif; font-size: 13px; }
+      .print-page:last-child { page-break-after: auto; }
+      .print-page-header { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #1a3c5e; padding-bottom: 10px; }
+      .print-co-name { font-size: 18px; font-weight: 800; color: #1a3c5e; }
+      .print-doc-title { font-size: 15px; font-weight: 700; margin: 4px 0; }
+      .print-doc-ref { font-size: 12px; color: #666; }
+      .print-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-bottom: 12px; font-size: 12px; }
+      .print-info-row { display: flex; gap: 6px; }
+      .print-info-label { font-weight: 600; white-space: nowrap; min-width: 80px; color: #555; }
+      .print-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .print-table th, .print-table td { border: 1px solid #ccc; padding: 5px 8px; }
+      .print-table th { background: #1a3c5e; color: #fff; font-weight: 600; }
+      .print-table tr:nth-child(even) { background: #f7f9fb; }
+      .print-sign-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 24px; }
+      .sign-box { border: 1px solid #999; border-radius: 4px; padding: 8px 6px; text-align: center; font-size: 11px; }
+      .sign-line { border-top: 1px solid #999; margin: 36px 8px 4px; }
+    </style>
+
+    <!-- Page 1: Main form -->
+    <div class="print-page">
+      <div class="print-page-header">
+        <div class="print-co-name">${r.companies?.name||'YIPINTSOI ENERGY'}</div>
+        <div class="print-doc-title">ใบเบิกเงินสดย่อย (Petty Cash Request)</div>
       </div>
 
-      ${expRows ? `
-      <strong>รายการค่าใช้จ่าย</strong>
-      <table class="print-table" style="margin-top:8px;margin-bottom:16px">
-        <thead><tr><th>#</th><th>รายการ</th><th>จำนวนเงิน</th><th>ใบเสร็จ</th></tr></thead>
-        <tbody>${expRows}
-          <tr style="font-weight:700;background:#f7fafc">
-            <td colspan="2">รวมค่าใช้จ่าย</td>
-            <td style="text-align:right">${fmt(expTotal)}</td><td></td>
+      <div class="print-info-grid" style="margin-bottom:14px">
+        <div class="print-info-row"><span class="print-info-label">เลขที่เอกสาร:</span> <span>${r.doc_no}</span></div>
+        <div class="print-info-row"><span class="print-info-label">วันที่:</span> <span>${fmtDate(r.doc_date)}</span></div>
+        <div class="print-info-row"><span class="print-info-label">ส่วน:</span> <span>${r.department||'-'}</span></div>
+        <div class="print-info-row"><span class="print-info-label">ฝ่าย:</span> <span>${r.division||'-'}</span></div>
+        <div class="print-info-row"><span class="print-info-label">รหัสหน่วยงาน:</span> <span>${r.unit_code||'-'}</span></div>
+        <div class="print-info-row"><span class="print-info-label">ผู้ขอเบิก:</span> <span>${r.profiles?.full_name||'-'}</span></div>
+        ${r.is_so ? `<div class="print-info-row"><span class="print-info-label">เลขที่ SO:</span> <span>${r.so_number||''}</span></div>` : ''}
+        ${r.is_project ? `<div class="print-info-row"><span class="print-info-label">Project:</span> <span>${r.project_number||''}</span></div>` : ''}
+        <div class="print-info-row" style="grid-column:1/-1"><span class="print-info-label">วัตถุประสงค์:</span> <span>${r.purpose||'-'}</span></div>
+      </div>
+
+      <table class="print-table">
+        <thead>
+          <tr>
+            <th style="width:36px">ที่</th>
+            <th>รายการ / เส้นทาง</th>
+            <th style="width:100px">รหัส Job</th>
+            <th style="width:90px;text-align:right">จำนวนเงิน (บาท)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${mainRows}
+          <tr style="font-weight:700;background:#1a3c5e;color:#fff">
+            <td colspan="3" style="text-align:right">ยอดรวมทั้งหมด</td>
+            <td style="text-align:right">${fmt(grandTotal)}</td>
           </tr>
         </tbody>
-      </table>` : ''}
+      </table>
 
-      ${tripRows ? `
-      <strong>บันทึกการเดินทาง</strong>
-      <table class="print-table" style="margin-top:8px;margin-bottom:16px">
-        <thead><tr><th>#</th><th>ต้นทาง</th><th>ปลายทาง</th><th>ระยะทาง</th><th>ค่าเดินทาง</th></tr></thead>
-        <tbody>${tripRows}
-          <tr style="font-weight:700;background:#f7fafc">
-            <td colspan="4">รวมค่าเดินทาง</td>
-            <td style="text-align:right">${fmt(tripTotal)}</td>
-          </tr>
-        </tbody>
-      </table>` : ''}
-
-      <div class="print-total">ยอดรวมทั้งหมด: ${fmt(r.total_amount)}</div>
-      ${r.notes ? `<div style="margin-top:8px;font-size:13px;color:#666">หมายเหตุ: ${r.notes}</div>` : ''}
-
-      <div class="print-sign">
-        <div class="print-sign-box">ผู้เบิก<br><br><br>${r.profiles?.full_name||''}</div>
-        <div class="print-sign-box">ผู้ตรวจสอบ<br><br><br>................................</div>
-        <div class="print-sign-box">ผู้อนุมัติ<br><br><br>................................</div>
+      <div style="margin-top:8px;font-size:11px;color:#666">
+        หมายเหตุ: รวมค่าเดินทาง ${fmt(tripTotal)} บาท
       </div>
-    </div>`;
+
+      <div class="print-sign-row">
+        <div class="sign-box">
+          <div class="sign-line"></div>
+          <div>ผู้ขอเบิก</div>
+          <div style="color:#888">(${r.profiles?.full_name||''})</div>
+        </div>
+        <div class="sign-box">
+          <div class="sign-line"></div>
+          <div>ผู้ตรวจสอบ</div>
+          <div style="color:#888">(..............................)</div>
+        </div>
+        <div class="sign-box">
+          <div class="sign-line"></div>
+          <div>ผู้อนุมัติ</div>
+          <div style="color:#888">(..............................)</div>
+        </div>
+        <div class="sign-box">
+          <div class="sign-line"></div>
+          <div>ผู้จ่ายเงิน</div>
+          <div style="color:#888">(..............................)</div>
+        </div>
+        <div class="sign-box">
+          <div class="sign-line"></div>
+          <div>ผู้รับเงิน</div>
+          <div style="color:#888">(..............................)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pages 2+: Mile rate attachments -->
+    ${milePages}
+
+    <!-- Pages last: Expense attachments -->
+    ${expPages}
+  `;
 
   closeModal('modal-approve');
   openModal('modal-print');
+};
+
+window.printFromDetail = async (id) => {
+  closeModal('modal-approve');
+  await editPC(id);
+  // force preview open then print
+  previewOpen = true;
+  document.getElementById('pc-preview-panel').style.display = '';
+  document.getElementById('modal-pc-inner').closest('.modal-box')?.classList.add('preview-open');
+  updatePreview();
+  setTimeout(() => printPreview(), 300);
 };
 </script>
 </body>

@@ -667,8 +667,19 @@ tbody tr:hover td { background: var(--gray-50); }
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 660px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-lg);
   animation: modal-in .25s ease;
+}
+.modal-box.preview-open {
+  max-width: 1160px;
+}
+#modal-pc-form-body {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
 }
 @keyframes modal-in { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:none; } }
 .modal-head {
@@ -754,17 +765,21 @@ tbody tr:hover td { background: var(--gray-50); }
 .item-row:hover { border-color: var(--gray-300); }
 .item-row.expense-row { grid-template-columns: 1fr 100px 80px 36px; }
 .item-row.trip-row    { grid-template-columns: 1fr 1fr 80px 36px; }
-.item-row input {
-  padding: 7px 10px;
+.item-row input,
+.item-row select {
+  height: 32px;
+  padding: 0 10px;
   border: 1.5px solid var(--gray-200);
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-family: inherit;
   width: 100%;
   background: #fff;
+  box-sizing: border-box;
   transition: border-color .2s;
 }
-.item-row input:focus { outline: none; border-color: var(--accent); }
+.item-row input:focus,
+.item-row select:focus { outline: none; border-color: var(--accent); }
 .btn-del-row {
   width: 32px; height: 32px;
   background: var(--danger-light);
