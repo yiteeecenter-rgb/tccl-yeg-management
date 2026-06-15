@@ -347,9 +347,9 @@ tr:hover td { background:#fafbfc; }
   <!-- Top Bar -->
   <div class="top-bar">
     <div class="top-bar-brand">
-      <div class="top-bar-icon">
-        <i data-lucide="hard-hat" style="width:20px;height:20px;color:#fff;stroke-width:2"></i>
-      </div>
+      <button class="hamburger" onclick="toggleSidebar()" title="เปิด/ปิดเมนู">
+        <i data-lucide="menu" style="width:20px;height:20px;color:#fff"></i>
+      </button>
       <div>
         <div class="top-bar-title">ระบบจัดการงานก่อสร้าง</div>
         <div class="top-bar-sub">TCCL / Yipintsoi Energy</div>
@@ -365,27 +365,64 @@ tr:hover td { background:#fafbfc; }
       </div>
       <button class="btn-logout" onclick="doLogout()">
         <i data-lucide="log-out" style="width:14px;height:14px"></i>
-        ออก
+        <span class="logout-text">ออกจากระบบ</span>
       </button>
     </div>
   </div>
 
-  <!-- Nav Tabs -->
-  <div class="nav-tabs" id="nav-tabs">
-    <div class="nav-tab active" onclick="switchTab('dashboard',this)">
-      <i data-lucide="layout-dashboard" class="tab-icon"></i> ภาพรวม
-    </div>
-    <div class="nav-tab" onclick="switchTab('petty-cash',this)">
-      <i data-lucide="wallet" class="tab-icon"></i> เบิกเงินสดย่อย
-    </div>
-    <div class="nav-tab" onclick="switchTab('approval',this)">
-      <i data-lucide="check-circle" class="tab-icon"></i> อนุมัติเอกสาร
-      <span class="nav-badge" id="pending-badge" style="display:none">0</span>
-    </div>
-    <div class="nav-tab admin-only" onclick="switchTab('admin',this)" style="display:none">
-      <i data-lucide="users" class="tab-icon"></i> จัดการผู้ใช้
-    </div>
-  </div>
+  <!-- App Body: Sidebar + Content -->
+  <div class="app-body">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+          <i data-lucide="hard-hat" style="width:22px;height:22px;color:#fff;stroke-width:1.5"></i>
+        </div>
+        <div class="sidebar-brand-text">
+          <div class="sidebar-brand-name">TCCL / YEG</div>
+          <div class="sidebar-brand-sub">Construction Mgmt</div>
+        </div>
+      </div>
+
+      <div class="sidebar-section-label">เมนูหลัก</div>
+
+      <nav class="sidebar-nav" id="nav-tabs">
+        <div class="nav-tab active" onclick="switchTab('dashboard',this)">
+          <i data-lucide="layout-dashboard" class="tab-icon"></i>
+          <span class="nav-label">ภาพรวม</span>
+        </div>
+        <div class="nav-tab" onclick="switchTab('petty-cash',this)">
+          <i data-lucide="wallet" class="tab-icon"></i>
+          <span class="nav-label">เบิกเงินสดย่อย</span>
+        </div>
+        <div class="nav-tab" onclick="switchTab('approval',this)">
+          <i data-lucide="check-circle" class="tab-icon"></i>
+          <span class="nav-label">อนุมัติเอกสาร</span>
+          <span class="nav-badge" id="pending-badge" style="display:none">0</span>
+        </div>
+        <div class="nav-tab admin-only" onclick="switchTab('admin',this)" style="display:none">
+          <i data-lucide="users" class="tab-icon"></i>
+          <span class="nav-label">จัดการผู้ใช้</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" id="sidebar-avatar">A</div>
+          <div class="sidebar-user-info">
+            <div id="sidebar-name" style="font-size:13px;font-weight:600;color:#e2e8f0">-</div>
+            <div id="sidebar-role" style="font-size:11px;color:#64748b">-</div>
+          </div>
+        </div>
+        <button class="sidebar-logout" onclick="doLogout()" title="ออกจากระบบ">
+          <i data-lucide="log-out" style="width:16px;height:16px"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
   <div class="main-content">
 
@@ -452,6 +489,7 @@ tr:hover td { background:#fafbfc; }
     </div>
 
   </div><!-- /main-content -->
+  </div><!-- /app-body -->
 </div><!-- /app-screen -->
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -653,6 +691,16 @@ function genDocNo() {
 window.openModal = (id) => document.getElementById(id).classList.add('open');
 window.closeModal = (id) => document.getElementById(id).classList.remove('open');
 
+// ── Sidebar toggle ────────────────────────────────────────────
+window.toggleSidebar = () => {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+};
+window.closeSidebar = () => {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+};
+
 // ── Auth ──────────────────────────────────────────────────────
 window.doLogin = async () => {
   const email = document.getElementById('login-email').value.trim();
@@ -751,7 +799,11 @@ async function initApp(user) {
   const companyName = currentProfile?.companies?.name || '';
   document.getElementById('user-name-display').textContent = displayName;
   document.getElementById('user-role-display').textContent = `${role} · ${companyName}`;
-  document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
+  const initial = displayName.charAt(0).toUpperCase();
+  document.getElementById('user-avatar').textContent = initial;
+  if (document.getElementById('sidebar-avatar')) document.getElementById('sidebar-avatar').textContent = initial;
+  if (document.getElementById('sidebar-name')) document.getElementById('sidebar-name').textContent = displayName;
+  if (document.getElementById('sidebar-role')) document.getElementById('sidebar-role').textContent = `${role} · ${companyName}`;
   // update pending badge
   const { data: pending } = await sb.from('petty_cash').select('id', { count: 'exact' }).eq('status','pending');
   const cnt = pending?.length || 0;
