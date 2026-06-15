@@ -978,7 +978,7 @@ window.doRegister = async () => {
 
 window.appConfirm = function appConfirm({ title='ยืนยัน', message='', okText='ยืนยัน', okColor='#e53e3e' } = {}) {
   return new Promise(resolve => {
-    document.getElementById('confirm-icon').textContent = icon;
+    lucide.createIcons({ attrs: { 'stroke-width': 2 } });
     document.getElementById('confirm-title').textContent = title;
     document.getElementById('confirm-message').textContent = message;
     const okBtn = document.getElementById('confirm-ok-btn');
