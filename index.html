@@ -489,6 +489,75 @@ tr:hover td { background:#fafbfc; }
   <img id="lightbox-img" style="max-width:90vw;max-height:85vh;border-radius:8px">
 </div>
 
+<!-- User Edit Modal -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modal-user-title">แก้ไขข้อมูลผู้ใช้</h3>
+      <button class="modal-close" onclick="closeModal('modal-user')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="user-edit-id">
+      <div class="form-group">
+        <label>ชื่อ-นามสกุล</label>
+        <input class="form-control" id="user-edit-name">
+      </div>
+      <div class="form-group">
+        <label>บริษัท</label>
+        <select class="form-control" id="user-edit-company"></select>
+      </div>
+      <div class="form-group">
+        <label>สิทธิ์การใช้งาน</label>
+        <select class="form-control" id="user-edit-role">
+          <option value="staff">staff — พนักงาน</option>
+          <option value="manager">manager — ผู้จัดการ</option>
+          <option value="admin">admin — ผู้ดูแลระบบ</option>
+          <option value="owner">owner — เจ้าของ (อนุมัติสูงสุด)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-user')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveUserEdit()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Print Modal -->
+<div class="modal-overlay" id="modal-print">
+  <div class="modal-box" style="max-width:720px">
+    <div class="modal-head">
+      <h3>พิมพ์เอกสาร</h3>
+      <button class="modal-close" onclick="closeModal('modal-print')">✕</button>
+    </div>
+    <div class="modal-body" id="print-content"></div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-print')">ปิด</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨️ พิมพ์</button>
+    </div>
+  </div>
+</div>
+
+<style>
+@media print {
+  body > *:not(#modal-print) { display: none !important; }
+  #modal-print { display: block !important; position: static !important; background: none !important; }
+  .modal-box { box-shadow: none !important; max-width: 100% !important; }
+  .modal-foot { display: none !important; }
+}
+.print-doc { font-family: 'Sarabun', sans-serif; }
+.print-header { text-align: center; border-bottom: 2px solid #1a3c5e; padding-bottom: 12px; margin-bottom: 16px; }
+.print-header h2 { margin: 0; font-size: 20px; color: #1a3c5e; }
+.print-header p { margin: 4px 0; font-size: 13px; color: #555; }
+.print-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; font-size: 14px; }
+.print-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
+.print-table th { background: #1a3c5e; color: #fff; padding: 8px 10px; text-align: left; }
+.print-table td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+.print-total { text-align: right; font-size: 16px; font-weight: 700; color: #1a3c5e; padding: 8px 0; border-top: 2px solid #1a3c5e; }
+.print-sign { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 40px; text-align: center; font-size: 13px; }
+.print-sign-box { border-top: 1px solid #999; padding-top: 6px; }
+</style>
+
 <!-- Toast & Loading -->
 <div id="toast"></div>
 <div id="loading" class="show">⏳ กำลังโหลด...</div>
@@ -872,14 +941,16 @@ window.viewPC = async (id) => {
 
   const role = currentProfile?.role;
   const btnArea = document.getElementById('approve-buttons');
+  let buttons = `<button class="btn btn-outline" onclick="printPC('${r.id}')">🖨️ พิมพ์</button>`;
   if (['owner','admin','manager'].includes(role) && r.status === 'pending') {
-    btnArea.innerHTML = `
+    buttons += `
       <input class="form-control" id="approve-notes" placeholder="หมายเหตุ (ถ้ามี)" style="flex:1">
       <button class="btn btn-danger" onclick="doApprove('${r.id}', false)">ปฏิเสธ</button>
       <button class="btn btn-success" onclick="doApprove('${r.id}', true)">อนุมัติ ✓</button>`;
   } else {
-    btnArea.innerHTML = `<button class="btn btn-outline" onclick="closeModal('modal-approve')">ปิด</button>`;
+    buttons += `<button class="btn btn-outline" onclick="closeModal('modal-approve')">ปิด</button>`;
   }
+  btnArea.innerHTML = buttons;
   openModal('modal-approve');
 };
 
@@ -929,29 +1000,88 @@ window.doApprove = async (id, approved) => {
 async function loadUsers() {
   const { data } = await sb.from('profiles').select('*, companies(name)').order('full_name');
   const tbody = document.getElementById('user-list');
+  const roleColor = { owner:'approved', admin:'pending', manager:'draft', staff:'draft' };
   tbody.innerHTML = (data||[]).map(u => `
     <tr>
-      <td>${u.full_name}</td>
-      <td>${u.id}</td>
+      <td><strong>${u.full_name}</strong></td>
+      <td style="font-size:12px;color:#999">${u.id.slice(0,8)}...</td>
       <td>${u.companies?.name||'-'}</td>
-      <td><span class="badge badge-${u.role==='owner'?'approved':u.role==='admin'?'pending':'draft'}">${u.role}</span></td>
-      <td><button class="btn btn-sm btn-outline" onclick="editUser('${u.id}')">แก้ไข</button></td>
+      <td><span class="badge badge-${roleColor[u.role]||'draft'}">${u.role}</span></td>
+      <td>
+        <button class="btn btn-sm btn-outline" onclick="editUser('${u.id}','${u.full_name}','${u.company_id||''}','${u.role}')">แก้ไข</button>
+      </td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#999">ยังไม่มีผู้ใช้</td></tr>';
 }
 
-window.openUserForm = () => toast('กรุณาเพิ่มผู้ใช้ผ่าน Supabase Dashboard > Authentication > Users แล้วแก้ไข role ใน Table Editor ครับ');
-window.editUser = (id) => toast('แก้ไขสิทธิ์ได้ที่ Supabase Dashboard > Table Editor > profiles ครับ');
+window.openUserForm = () => toast('พนักงานสมัครสมาชิกเองได้จากหน้า Login ครับ แล้วมาแก้ Role ที่นี่ได้เลย');
+
+window.editUser = (id, name, companyId, role) => {
+  document.getElementById('user-edit-id').value = id;
+  document.getElementById('user-edit-name').value = name;
+  document.getElementById('user-edit-role').value = role;
+  const sel = document.getElementById('user-edit-company');
+  sel.innerHTML = '<option value="">-- ไม่ระบุ --</option>' +
+    companies.map(c => `<option value="${c.id}" ${c.id===companyId?'selected':''}>${c.name}</option>`).join('');
+  openModal('modal-user');
+};
+
+window.saveUserEdit = async () => {
+  const id = document.getElementById('user-edit-id').value;
+  const full_name = document.getElementById('user-edit-name').value.trim();
+  const role = document.getElementById('user-edit-role').value;
+  const company_id = document.getElementById('user-edit-company').value || null;
+  loading(true);
+  const { error } = await sb.from('profiles').update({ full_name, role, company_id }).eq('id', id);
+  loading(false);
+  if (error) { toast('เกิดข้อผิดพลาด: ' + error.message); return; }
+  toast('บันทึกแล้ว ✓');
+  closeModal('modal-user');
+  loadUsers();
+};
 
 // ── Expense / Trip rows ───────────────────────────────────────
-window.addExpenseRow = (desc='', amt='') => {
+window.addExpenseRow = (desc='', amt='', photoUrl='') => {
   const div = document.createElement('div');
   div.className = 'item-row expense-row';
+  div.style.gridTemplateColumns = '1fr 100px 80px 40px';
   div.innerHTML = `
     <input placeholder="รายการ" value="${desc}" oninput="updateTotals()">
     <input type="number" placeholder="฿" value="${amt}" oninput="updateTotals()" style="text-align:right">
+    <div style="display:flex;align-items:center;gap:4px">
+      ${photoUrl ? `<img src="${photoUrl}" class="photo-preview" onclick="openModal('modal-photo');document.getElementById('lightbox-img').src='${photoUrl}'">` : ''}
+      <label style="cursor:pointer;background:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;white-space:nowrap">
+        📷<input type="file" accept="image/*" style="display:none" onchange="uploadExpensePhoto(this)">
+      </label>
+    </div>
     <button class="btn-del-row" onclick="this.closest('.item-row').remove();updateTotals()">✕</button>`;
   document.getElementById('expense-rows').appendChild(div);
   updateTotals();
+};
+
+window.uploadExpensePhoto = async (input) => {
+  const file = input.files[0];
+  if (!file) return;
+  loading(true);
+  try {
+    const ext = file.name.split('.').pop();
+    const path = `receipts/${Date.now()}.${ext}`;
+    const { data, error } = await sb.storage.from('receipts').upload(path, file, { upsert: true });
+    if (error) throw error;
+    const { data: urlData } = sb.storage.from('receipts').getPublicUrl(data.path);
+    const url = urlData.publicUrl;
+    // แสดง thumbnail ข้างช่อง
+    const container = input.closest('div');
+    const img = document.createElement('img');
+    img.src = url;
+    img.className = 'photo-preview';
+    img.setAttribute('data-url', url);
+    img.onclick = () => { openModal('modal-photo'); document.getElementById('lightbox-img').src = url; };
+    container.insertBefore(img, container.firstChild);
+    toast('อัปโหลดรูปสำเร็จ ✓');
+  } catch(e) {
+    toast('อัปโหลดไม่สำเร็จ: ' + e.message);
+  }
+  loading(false);
 };
 
 window.addTripRow = (from='', to='', dist='') => {
@@ -978,6 +1108,85 @@ window.updateTotals = () => {
   document.getElementById('exp-subtotal').textContent = fmt(expTotal);
   document.getElementById('trip-subtotal').textContent = fmt(tripTotal);
   document.getElementById('pc-grand-total').textContent = fmt(expTotal + tripTotal);
+};
+
+// ── Print ─────────────────────────────────────────────────────
+window.printPC = async (id) => {
+  loading(true);
+  const { data: r } = await sb.from('petty_cash')
+    .select('*, companies(name), profiles!created_by(full_name), expenses(*), trips(*)')
+    .eq('id', id).single();
+  loading(false);
+
+  const expTotal = (r.expenses||[]).reduce((a,e)=>a+Number(e.amount),0);
+  const tripTotal = (r.trips||[]).reduce((a,t)=>a+Number(t.amount),0);
+
+  const expRows = (r.expenses||[]).map((e,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${e.description}</td>
+      <td style="text-align:right">${fmt(e.amount)}</td>
+      <td style="text-align:center">${e.photo_url ? `<img src="${e.photo_url}" style="height:40px;border-radius:4px">` : '-'}</td>
+    </tr>`).join('');
+
+  const tripRows = (r.trips||[]).map((t,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${t.origin||'-'}</td>
+      <td>${t.destination||'-'}</td>
+      <td style="text-align:right">${t.distance} กม.</td>
+      <td style="text-align:right">${fmt(t.amount)}</td>
+    </tr>`).join('');
+
+  document.getElementById('print-content').innerHTML = `
+    <div class="print-doc">
+      <div class="print-header">
+        <h2>ใบเบิกเงินสดย่อย</h2>
+        <p>${r.companies?.name || ''}</p>
+      </div>
+      <div class="print-meta">
+        <div><strong>เลขที่:</strong> ${r.doc_no}</div>
+        <div><strong>วันที่:</strong> ${fmtDate(r.doc_date)}</div>
+        <div><strong>ผู้เบิก:</strong> ${r.profiles?.full_name||'-'}</div>
+        <div><strong>จุดประสงค์:</strong> ${r.purpose||'-'}</div>
+      </div>
+
+      ${expRows ? `
+      <strong>รายการค่าใช้จ่าย</strong>
+      <table class="print-table" style="margin-top:8px;margin-bottom:16px">
+        <thead><tr><th>#</th><th>รายการ</th><th>จำนวนเงิน</th><th>ใบเสร็จ</th></tr></thead>
+        <tbody>${expRows}
+          <tr style="font-weight:700;background:#f7fafc">
+            <td colspan="2">รวมค่าใช้จ่าย</td>
+            <td style="text-align:right">${fmt(expTotal)}</td><td></td>
+          </tr>
+        </tbody>
+      </table>` : ''}
+
+      ${tripRows ? `
+      <strong>บันทึกการเดินทาง</strong>
+      <table class="print-table" style="margin-top:8px;margin-bottom:16px">
+        <thead><tr><th>#</th><th>ต้นทาง</th><th>ปลายทาง</th><th>ระยะทาง</th><th>ค่าเดินทาง</th></tr></thead>
+        <tbody>${tripRows}
+          <tr style="font-weight:700;background:#f7fafc">
+            <td colspan="4">รวมค่าเดินทาง</td>
+            <td style="text-align:right">${fmt(tripTotal)}</td>
+          </tr>
+        </tbody>
+      </table>` : ''}
+
+      <div class="print-total">ยอดรวมทั้งหมด: ${fmt(r.total_amount)}</div>
+      ${r.notes ? `<div style="margin-top:8px;font-size:13px;color:#666">หมายเหตุ: ${r.notes}</div>` : ''}
+
+      <div class="print-sign">
+        <div class="print-sign-box">ผู้เบิก<br><br><br>${r.profiles?.full_name||''}</div>
+        <div class="print-sign-box">ผู้ตรวจสอบ<br><br><br>................................</div>
+        <div class="print-sign-box">ผู้อนุมัติ<br><br><br>................................</div>
+      </div>
+    </div>`;
+
+  closeModal('modal-approve');
+  openModal('modal-print');
 };
 </script>
 </body>
