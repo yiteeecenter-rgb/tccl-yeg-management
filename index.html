@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
 <link rel="stylesheet" href="css/style.css">
 <style>
 /* ─── Login ─────────────────────────────────────────────── */
@@ -512,7 +515,7 @@ tr:hover td { background:#fafbfc; }
         </div>
         <div class="form-group">
           <label>วันที่</label>
-          <input type="date" class="form-control" id="pc-date">
+          <input type="date" class="form-control" id="pc-date" lang="th-TH">
         </div>
       </div>
       <div class="form-group">
@@ -650,6 +653,8 @@ tr:hover td { background:#fafbfc; }
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     if (typeof lucide !== 'undefined') lucide.createIcons();
+    // Init flatpickr date pickers — DD/MM/YYYY Thai format
+    // flatpickr inits when modal opens (see openPCForm)
   });
 </script>
 <script type="module">
@@ -899,6 +904,20 @@ async function loadPettyCash() {
 }
 
 // ── PC Form ───────────────────────────────────────────────────
+let pcDatePicker = null;
+function initDatePicker() {
+  if (typeof flatpickr === 'undefined') return;
+  if (pcDatePicker) { pcDatePicker.destroy(); }
+  pcDatePicker = flatpickr('#pc-date', {
+    locale: 'th',
+    dateFormat: 'Y-m-d',
+    altInput: true,
+    altFormat: 'd/m/Y',
+    allowInput: true,
+    defaultDate: new Date(),
+  });
+}
+
 window.openPCForm = () => {
   document.getElementById('pc-id').value = '';
   document.getElementById('modal-pc-title').textContent = 'สร้างเอกสารเบิกเงินสดย่อย';
@@ -915,6 +934,7 @@ window.openPCForm = () => {
   document.getElementById('trip-rows').innerHTML = '';
   updateTotals();
   openModal('modal-pc');
+  setTimeout(initDatePicker, 50);
 };
 
 window.editPC = async (id) => {
@@ -940,6 +960,7 @@ window.editPC = async (id) => {
 
   updateTotals();
   openModal('modal-pc');
+  setTimeout(initDatePicker, 50);
 };
 
 window.savePC = async (submitStatus) => {
