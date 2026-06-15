@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบจัดการงานก่อสร้าง - TCCL / YEG</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* ─── Login ─────────────────────────────────────────────── */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg,#1a3c5e 0%,#2d6a9f 100%);
+}
+.login-card {
+  background:#fff;
+  border-radius:16px;
+  padding:40px 36px;
+  width:100%;
+  max-width:380px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  text-align:center;
+}
+.login-logo { font-size:48px; margin-bottom:8px; }
+.login-title { font-size:22px; font-weight:700; color:#1a3c5e; margin-bottom:4px; }
+.login-sub { font-size:13px; color:#888; margin-bottom:28px; }
+.login-card input {
+  width:100%;
+  padding:12px 14px;
+  border:1.5px solid #ddd;
+  border-radius:8px;
+  font-size:15px;
+  margin-bottom:14px;
+  box-sizing:border-box;
+  font-family:inherit;
+}
+.login-card input:focus { border-color:#2d6a9f; outline:none; }
+.btn-login {
+  width:100%;
+  padding:13px;
+  background:#2d6a9f;
+  color:#fff;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  margin-top:4px;
+}
+.btn-login:hover { background:#1a3c5e; }
+.login-error { color:#e53e3e; font-size:13px; margin-top:10px; }
+
+/* ─── App Shell ─────────────────────────────────────────── */
+#app-screen { display:none; }
+.top-bar {
+  background:#1a3c5e;
+  color:#fff;
+  padding:0 20px;
+  height:56px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+.top-bar-title { font-size:17px; font-weight:700; }
+.top-bar-user { font-size:13px; opacity:.85; display:flex; align-items:center; gap:10px; }
+.btn-logout { background:rgba(255,255,255,.15); border:none; color:#fff; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:13px; }
+.btn-logout:hover { background:rgba(255,255,255,.3); }
+
+/* ─── Nav Tabs ──────────────────────────────────────────── */
+.nav-tabs {
+  background:#fff;
+  border-bottom:2px solid #e2e8f0;
+  display:flex;
+  overflow-x:auto;
+  padding:0 12px;
+}
+.nav-tab {
+  padding:14px 18px;
+  cursor:pointer;
+  font-size:14px;
+  white-space:nowrap;
+  border-bottom:3px solid transparent;
+  color:#666;
+  font-weight:500;
+  transition:.2s;
+}
+.nav-tab.active { color:#2d6a9f; border-bottom-color:#2d6a9f; font-weight:700; }
+.nav-tab:hover { color:#2d6a9f; }
+
+/* ─── Main Content ──────────────────────────────────────── */
+.main-content { padding:20px; max-width:1000px; margin:0 auto; }
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+
+/* ─── Dashboard ─────────────────────────────────────────── */
+.dash-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;
+  margin-bottom:24px;
+}
+.dash-card {
+  background:#fff;
+  border-radius:12px;
+  padding:20px;
+  box-shadow:0 2px 10px rgba(0,0,0,.07);
+  text-align:center;
+}
+.dash-card .num { font-size:36px; font-weight:800; color:#2d6a9f; }
+.dash-card .lbl { font-size:13px; color:#888; margin-top:4px; }
+.dash-card.green .num { color:#38a169; }
+.dash-card.orange .num { color:#dd6b20; }
+.dash-card.red .num { color:#e53e3e; }
+
+/* ─── Table ─────────────────────────────────────────────── */
+.card { background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.07); margin-bottom:20px; }
+.card-header { padding:16px 20px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; justify-content:space-between; }
+.card-header h3 { margin:0; font-size:16px; }
+.card-body { padding:16px 20px; }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th { background:#f7fafc; padding:10px 12px; text-align:left; color:#666; font-weight:600; border-bottom:2px solid #e2e8f0; }
+td { padding:10px 12px; border-bottom:1px solid #f0f0f0; vertical-align:middle; }
+tr:hover td { background:#fafbfc; }
+
+/* ─── Status badges ─────────────────────────────────────── */
+.badge {
+  display:inline-block;
+  padding:3px 10px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:600;
+}
+.badge-draft { background:#edf2f7; color:#718096; }
+.badge-pending { background:#fefcbf; color:#744210; }
+.badge-approved { background:#c6f6d5; color:#22543d; }
+.badge-rejected { background:#fed7d7; color:#742a2a; }
+
+/* ─── Buttons ───────────────────────────────────────────── */
+.btn { padding:8px 16px; border:none; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600; transition:.2s; }
+.btn-primary { background:#2d6a9f; color:#fff; }
+.btn-primary:hover { background:#1a3c5e; }
+.btn-success { background:#38a169; color:#fff; }
+.btn-success:hover { background:#276749; }
+.btn-danger { background:#e53e3e; color:#fff; }
+.btn-danger:hover { background:#c53030; }
+.btn-sm { padding:5px 10px; font-size:12px; }
+.btn-outline { background:transparent; border:1.5px solid #2d6a9f; color:#2d6a9f; }
+.btn-outline:hover { background:#2d6a9f; color:#fff; }
+
+/* ─── Modal ─────────────────────────────────────────────── */
+.modal-overlay {
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.5);
+  z-index:200;
+  overflow-y:auto;
+}
+.modal-overlay.open { display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; }
+.modal-box {
+  background:#fff;
+  border-radius:16px;
+  width:100%;
+  max-width:640px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+}
+.modal-head {
+  padding:18px 24px;
+  border-bottom:1px solid #e2e8f0;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.modal-head h3 { margin:0; font-size:17px; }
+.modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:#999; }
+.modal-body { padding:24px; }
+.modal-foot { padding:16px 24px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px; }
+
+/* ─── Form ──────────────────────────────────────────────── */
+.form-group { margin-bottom:16px; }
+.form-group label { display:block; font-size:13px; font-weight:600; color:#444; margin-bottom:6px; }
+.form-control {
+  width:100%;
+  padding:10px 12px;
+  border:1.5px solid #ddd;
+  border-radius:8px;
+  font-size:14px;
+  font-family:inherit;
+  box-sizing:border-box;
+}
+.form-control:focus { border-color:#2d6a9f; outline:none; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+/* ─── Expense / Trip rows ───────────────────────────────── */
+.item-row {
+  display:grid;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+  background:#f7fafc;
+  padding:10px 12px;
+  border-radius:8px;
+}
+.item-row.expense-row { grid-template-columns:1fr 100px 40px; }
+.item-row.trip-row { grid-template-columns:1fr 1fr 80px 40px; }
+.item-row input { padding:7px 10px; border:1px solid #ddd; border-radius:6px; font-size:13px; width:100%; box-sizing:border-box; }
+.btn-del-row { background:#fed7d7; border:none; color:#e53e3e; border-radius:6px; cursor:pointer; font-size:16px; width:32px; height:32px; }
+
+/* ─── Photo preview ─────────────────────────────────────── */
+.photo-preview { width:60px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; }
+
+/* ─── Toast ─────────────────────────────────────────────── */
+#toast {
+  position:fixed;
+  bottom:24px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#323232;
+  color:#fff;
+  padding:12px 24px;
+  border-radius:8px;
+  font-size:14px;
+  z-index:999;
+  opacity:0;
+  transition:opacity .3s;
+  pointer-events:none;
+}
+#toast.show { opacity:1; }
+
+/* ─── Loading ───────────────────────────────────────────── */
+#loading {
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(255,255,255,.7);
+  z-index:500;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  color:#2d6a9f;
+}
+#loading.show { display:flex; }
+
+/* ─── Approval queue highlight ──────────────────────────── */
+.pending-row td { background:#fffbeb; }
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media(max-width:600px) {
+  .form-row { grid-template-columns:1fr; }
+  .dash-grid { grid-template-columns:1fr 1fr; }
+  .item-row.trip-row { grid-template-columns:1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOGIN SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🏗️</div>
+    <div class="login-title">ระบบจัดการงานก่อสร้าง</div>
+    <div class="login-sub">TCCL / Yipintsoi Energy</div>
+    <input type="email" id="login-email" placeholder="อีเมล" autocomplete="email">
+    <input type="password" id="login-password" placeholder="รหัสผ่าน" autocomplete="current-password">
+    <button class="btn-login" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APP SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="app-screen">
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="top-bar-title">🏗️ ระบบจัดการงานก่อสร้าง</div>
+    <div class="top-bar-user">
+      <span id="user-display"></span>
+      <button class="btn-logout" onclick="doLogout()">ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <!-- Nav Tabs -->
+  <div class="nav-tabs" id="nav-tabs">
+    <div class="nav-tab active" onclick="switchTab('dashboard')">📊 ภาพรวม</div>
+    <div class="nav-tab" onclick="switchTab('petty-cash')">💰 เบิกเงินสดย่อย</div>
+    <div class="nav-tab" onclick="switchTab('approval')">✅ อนุมัติเอกสาร</div>
+    <div class="nav-tab admin-only" onclick="switchTab('admin')" style="display:none">⚙️ จัดการผู้ใช้</div>
+  </div>
+
+  <div class="main-content">
+
+    <!-- ── DASHBOARD ────────────────────────────────────────── -->
+    <div class="tab-pane active" id="tab-dashboard">
+      <div class="dash-grid" id="dash-grid">
+        <div class="dash-card"><div class="num" id="d-total">-</div><div class="lbl">เอกสารทั้งหมด</div></div>
+        <div class="dash-card orange"><div class="num" id="d-pending">-</div><div class="lbl">รอดำเนินการ</div></div>
+        <div class="dash-card green"><div class="num" id="d-approved">-</div><div class="lbl">อนุมัติแล้ว</div></div>
+        <div class="dash-card red"><div class="num" id="d-rejected">-</div><div class="lbl">ปฏิเสธ</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>เอกสารล่าสุด (5 รายการ)</h3></div>
+        <div class="card-body">
+          <table><thead><tr><th>เลขที่</th><th>วันที่</th><th>ผู้สร้าง</th><th>ยอดรวม</th><th>สถานะ</th></tr></thead>
+          <tbody id="dash-recent"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PETTY CASH ───────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-petty-cash">
+      <div class="card">
+        <div class="card-header">
+          <h3>เบิกเงินสดย่อย</h3>
+          <button class="btn btn-primary" onclick="openPCForm()">+ สร้างเอกสาร</button>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>เลขที่</th><th>วันที่</th><th>จุดประสงค์</th><th>ยอดรวม</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+            <tbody id="pc-list"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── APPROVAL ─────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-approval">
+      <div class="card">
+        <div class="card-header"><h3>รายการรออนุมัติ</h3></div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>เลขที่</th><th>วันที่</th><th>ผู้ส่ง</th><th>บริษัท</th><th>ยอดรวม</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+            <tbody id="approval-list"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ADMIN ────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-admin">
+      <div class="card">
+        <div class="card-header">
+          <h3>จัดการผู้ใช้งาน</h3>
+          <button class="btn btn-primary" onclick="openUserForm()">+ เพิ่มผู้ใช้</button>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>ชื่อ</th><th>อีเมล</th><th>บริษัท</th><th>สิทธิ์</th><th>จัดการ</th></tr></thead>
+            <tbody id="user-list"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /app-screen -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALS
+════════════════════════════════════════════════════════════ -->
+
+<!-- Petty Cash Form Modal -->
+<div class="modal-overlay" id="modal-pc">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modal-pc-title">สร้างเอกสารเบิกเงินสดย่อย</h3>
+      <button class="modal-close" onclick="closeModal('modal-pc')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pc-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label>เลขที่เอกสาร</label>
+          <input class="form-control" id="pc-doc-no" readonly>
+        </div>
+        <div class="form-group">
+          <label>วันที่</label>
+          <input type="date" class="form-control" id="pc-date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>บริษัท</label>
+        <select class="form-control" id="pc-company"></select>
+      </div>
+      <div class="form-group">
+        <label>จุดประสงค์</label>
+        <input class="form-control" id="pc-purpose" placeholder="เช่น ค่าใช้จ่ายไซต์งาน">
+      </div>
+
+      <!-- Expenses -->
+      <div class="card-header" style="padding:12px 0;border:none">
+        <strong>รายการค่าใช้จ่าย</strong>
+        <button class="btn btn-sm btn-outline" onclick="addExpenseRow()">+ เพิ่มรายการ</button>
+      </div>
+      <div id="expense-rows"></div>
+      <div style="text-align:right;font-size:13px;color:#888;margin-top:4px">
+        รวมค่าใช้จ่าย: <strong id="exp-subtotal">฿0</strong>
+      </div>
+
+      <!-- Trips -->
+      <div class="card-header" style="padding:12px 0 4px;border:none;margin-top:12px">
+        <strong>บันทึกการเดินทาง</strong>
+        <button class="btn btn-sm btn-outline" onclick="addTripRow()">+ เพิ่มเส้นทาง</button>
+      </div>
+      <div style="font-size:12px;color:#999;margin-bottom:8px">อัตรา ฿5 / กม.</div>
+      <div id="trip-rows"></div>
+      <div style="text-align:right;font-size:13px;color:#888;margin-top:4px">
+        รวมค่าเดินทาง: <strong id="trip-subtotal">฿0</strong>
+      </div>
+
+      <div style="margin-top:16px;padding:12px;background:#f7fafc;border-radius:8px;text-align:right">
+        <span style="font-size:16px;font-weight:700">ยอดรวมทั้งหมด: <span id="pc-grand-total" style="color:#2d6a9f">฿0</span></span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-pc')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="savePC('draft')">บันทึกร่าง</button>
+      <button class="btn btn-success" onclick="savePC('pending')">ส่งขออนุมัติ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Approval Modal -->
+<div class="modal-overlay" id="modal-approve">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>รายละเอียดเอกสาร</h3>
+      <button class="modal-close" onclick="closeModal('modal-approve')">✕</button>
+    </div>
+    <div class="modal-body" id="approve-detail"></div>
+    <div class="modal-foot" id="approve-buttons"></div>
+  </div>
+</div>
+
+<!-- Photo Lightbox -->
+<div class="modal-overlay" id="modal-photo" onclick="closeModal('modal-photo')">
+  <img id="lightbox-img" style="max-width:90vw;max-height:85vh;border-radius:8px">
+</div>
+
+<!-- Toast & Loading -->
+<div id="toast"></div>
+<div id="loading" class="show">⏳ กำลังโหลด...</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// ── Init ──────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://ilapjwjswpswdxzfmmqn.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_D_sigwHyTwWW8J6Rhllg9w_SX75bazV';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let currentProfile = null;
+let companies = [];
+
+// ── Helpers ───────────────────────────────────────────────────
+function toast(msg, ms = 3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), ms);
+}
+function loading(show) {
+  document.getElementById('loading').classList.toggle('show', show);
+}
+function fmt(n) { return '฿' + Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 }); }
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('th-TH', { year:'numeric', month:'short', day:'numeric' });
+}
+function badgeHtml(status) {
+  const map = { draft:'badge-draft', pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected' };
+  const label = { draft:'ร่าง', pending:'รออนุมัติ', approved:'อนุมัติแล้ว', rejected:'ปฏิเสธ' };
+  return `<span class="badge ${map[status]||''}">${label[status]||status}</span>`;
+}
+function genDocNo() {
+  const d = new Date();
+  return `PC-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${Math.floor(Math.random()*900+100)}`;
+}
+window.openModal = (id) => document.getElementById(id).classList.add('open');
+window.closeModal = (id) => document.getElementById(id).classList.remove('open');
+
+// ── Auth ──────────────────────────────────────────────────────
+window.doLogin = async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  document.getElementById('login-error').textContent = '';
+  loading(true);
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    await initApp(data.user);
+  } catch(e) {
+    document.getElementById('login-error').textContent = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+  }
+  loading(false);
+};
+
+document.getElementById('login-password').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+
+window.doLogout = async () => {
+  await sb.auth.signOut();
+  currentUser = null; currentProfile = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+};
+
+async function initApp(user) {
+  currentUser = user;
+  // load profile
+  const { data: prof } = await sb.from('profiles').select('*, companies(*)').eq('id', user.id).single();
+  currentProfile = prof;
+
+  // load companies
+  const { data: comps } = await sb.from('companies').select('*');
+  companies = comps || [];
+
+  // UI
+  const role = currentProfile?.role || 'staff';
+  document.getElementById('user-display').textContent =
+    `${currentProfile?.full_name || user.email} (${role}) · ${currentProfile?.companies?.name || ''}`;
+
+  // Show admin tab only for admin/owner
+  if (['admin','owner'].includes(role)) {
+    document.querySelector('.admin-only').style.display = '';
+  }
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  loading(false);
+
+  loadDashboard();
+}
+
+// ── Check session on load ─────────────────────────────────────
+(async () => {
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data.session?.user) {
+      await initApp(data.session.user);
+    } else {
+      loading(false);
+    }
+  } catch(e) {
+    loading(false);
+  }
+})();
+
+// ── Tabs ──────────────────────────────────────────────────────
+window.switchTab = (name) => {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'petty-cash') loadPettyCash();
+  if (name === 'approval') loadApproval();
+  if (name === 'admin') loadUsers();
+};
+
+// ── Dashboard ─────────────────────────────────────────────────
+async function loadDashboard() {
+  const { data } = await sb.from('petty_cash').select('*, profiles!created_by(full_name)').order('created_at', { ascending: false });
+  const all = data || [];
+  document.getElementById('d-total').textContent = all.length;
+  document.getElementById('d-pending').textContent = all.filter(r=>r.status==='pending').length;
+  document.getElementById('d-approved').textContent = all.filter(r=>r.status==='approved').length;
+  document.getElementById('d-rejected').textContent = all.filter(r=>r.status==='rejected').length;
+
+  const tbody = document.getElementById('dash-recent');
+  tbody.innerHTML = all.slice(0, 5).map(r => `
+    <tr>
+      <td>${r.doc_no}</td>
+      <td>${fmtDate(r.doc_date)}</td>
+      <td>${r.profiles?.full_name || '-'}</td>
+      <td>${fmt(r.total_amount)}</td>
+      <td>${badgeHtml(r.status)}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#999">ยังไม่มีข้อมูล</td></tr>';
+}
+
+// ── Petty Cash List ───────────────────────────────────────────
+async function loadPettyCash() {
+  const { data } = await sb.from('petty_cash')
+    .select('*, companies(name), profiles!created_by(full_name)')
+    .order('created_at', { ascending: false });
+  const all = data || [];
+
+  const role = currentProfile?.role;
+  const mine = (role === 'staff')
+    ? all.filter(r => r.created_by === currentUser.id)
+    : all;
+
+  const tbody = document.getElementById('pc-list');
+  tbody.innerHTML = mine.map(r => `
+    <tr class="${r.status==='pending'?'pending-row':''}">
+      <td><strong>${r.doc_no}</strong></td>
+      <td>${fmtDate(r.doc_date)}</td>
+      <td>${r.purpose || '-'}</td>
+      <td>${fmt(r.total_amount)}</td>
+      <td>${badgeHtml(r.status)}</td>
+      <td>
+        <button class="btn btn-sm btn-outline" onclick="viewPC('${r.id}')">ดู</button>
+        ${r.status==='draft' ? `<button class="btn btn-sm btn-primary" onclick="editPC('${r.id}')">แก้ไข</button>` : ''}
+        ${r.status==='draft' ? `<button class="btn btn-sm btn-danger" onclick="deletePC('${r.id}')">ลบ</button>` : ''}
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#999">ยังไม่มีข้อมูล</td></tr>';
+}
+
+// ── PC Form ───────────────────────────────────────────────────
+window.openPCForm = () => {
+  document.getElementById('pc-id').value = '';
+  document.getElementById('modal-pc-title').textContent = 'สร้างเอกสารเบิกเงินสดย่อย';
+  document.getElementById('pc-doc-no').value = genDocNo();
+  document.getElementById('pc-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pc-purpose').value = '';
+
+  // populate company dropdown
+  const sel = document.getElementById('pc-company');
+  sel.innerHTML = companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  if (currentProfile?.company_id) sel.value = currentProfile.company_id;
+
+  document.getElementById('expense-rows').innerHTML = '';
+  document.getElementById('trip-rows').innerHTML = '';
+  updateTotals();
+  openModal('modal-pc');
+};
+
+window.editPC = async (id) => {
+  loading(true);
+  const { data: r } = await sb.from('petty_cash').select('*, expenses(*), trips(*)').eq('id', id).single();
+  loading(false);
+
+  document.getElementById('pc-id').value = r.id;
+  document.getElementById('modal-pc-title').textContent = 'แก้ไขเอกสาร';
+  document.getElementById('pc-doc-no').value = r.doc_no;
+  document.getElementById('pc-date').value = r.doc_date;
+  document.getElementById('pc-purpose').value = r.purpose || '';
+
+  const sel = document.getElementById('pc-company');
+  sel.innerHTML = companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  sel.value = r.company_id;
+
+  document.getElementById('expense-rows').innerHTML = '';
+  (r.expenses || []).forEach(e => addExpenseRow(e.description, e.amount));
+
+  document.getElementById('trip-rows').innerHTML = '';
+  (r.trips || []).forEach(t => addTripRow(t.origin, t.destination, t.distance));
+
+  updateTotals();
+  openModal('modal-pc');
+};
+
+window.savePC = async (submitStatus) => {
+  const id = document.getElementById('pc-id').value;
+  const record = {
+    doc_no: document.getElementById('pc-doc-no').value,
+    doc_date: document.getElementById('pc-date').value,
+    company_id: document.getElementById('pc-company').value,
+    purpose: document.getElementById('pc-purpose').value,
+    created_by: currentUser.id,
+    status: submitStatus,
+    total_amount: parseFloat(document.getElementById('pc-grand-total').textContent.replace(/[฿,]/g,'')) || 0
+  };
+
+  loading(true);
+  try {
+    let pcId;
+    if (id) {
+      await sb.from('petty_cash').update(record).eq('id', id);
+      pcId = id;
+    } else {
+      const { data } = await sb.from('petty_cash').insert(record).select().single();
+      pcId = data.id;
+    }
+
+    // save expenses
+    const expRows = document.querySelectorAll('#expense-rows .item-row');
+    await sb.from('expenses').delete().eq('petty_cash_id', pcId);
+    const exps = [];
+    expRows.forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      if (inputs[0].value) exps.push({ petty_cash_id: pcId, description: inputs[0].value, amount: parseFloat(inputs[1].value)||0 });
+    });
+    if (exps.length) await sb.from('expenses').insert(exps);
+
+    // save trips
+    const tripRows = document.querySelectorAll('#trip-rows .item-row');
+    await sb.from('trips').delete().eq('petty_cash_id', pcId);
+    const trips = [];
+    tripRows.forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const dist = parseFloat(inputs[2].value)||0;
+      if (inputs[0].value || inputs[1].value) trips.push({
+        petty_cash_id: pcId,
+        origin: inputs[0].value,
+        destination: inputs[1].value,
+        distance: dist,
+        rate: 5,
+        amount: dist * 5
+      });
+    });
+    if (trips.length) await sb.from('trips').insert(trips);
+
+    toast(submitStatus === 'pending' ? 'ส่งขออนุมัติแล้ว ✓' : 'บันทึกแล้ว ✓');
+    closeModal('modal-pc');
+    loadPettyCash();
+    loadDashboard();
+  } catch(e) {
+    toast('เกิดข้อผิดพลาด: ' + e.message);
+  }
+  loading(false);
+};
+
+window.deletePC = async (id) => {
+  if (!confirm('ยืนยันการลบเอกสาร?')) return;
+  loading(true);
+  await sb.from('petty_cash').delete().eq('id', id);
+  toast('ลบแล้ว');
+  loading(false);
+  loadPettyCash();
+};
+
+// View PC detail
+window.viewPC = async (id) => {
+  loading(true);
+  const { data: r } = await sb.from('petty_cash')
+    .select('*, companies(name), profiles!created_by(full_name), expenses(*), trips(*)')
+    .eq('id', id).single();
+  loading(false);
+
+  const expTotal = (r.expenses||[]).reduce((a,e)=>a+Number(e.amount),0);
+  const tripTotal = (r.trips||[]).reduce((a,t)=>a+Number(t.amount),0);
+
+  document.getElementById('approve-detail').innerHTML = `
+    <div class="form-row" style="margin-bottom:12px">
+      <div><strong>เลขที่:</strong> ${r.doc_no}</div>
+      <div><strong>วันที่:</strong> ${fmtDate(r.doc_date)}</div>
+    </div>
+    <div style="margin-bottom:8px"><strong>จุดประสงค์:</strong> ${r.purpose||'-'}</div>
+    <div style="margin-bottom:16px"><strong>สถานะ:</strong> ${badgeHtml(r.status)}</div>
+
+    ${r.expenses?.length ? `
+    <strong>รายการค่าใช้จ่าย</strong>
+    <table style="margin-top:8px;margin-bottom:16px">
+      <thead><tr><th>รายการ</th><th>จำนวนเงิน</th></tr></thead>
+      <tbody>${r.expenses.map(e=>`<tr><td>${e.description}</td><td>${fmt(e.amount)}</td></tr>`).join('')}
+      <tr style="font-weight:700"><td>รวม</td><td>${fmt(expTotal)}</td></tr></tbody>
+    </table>` : ''}
+
+    ${r.trips?.length ? `
+    <strong>บันทึกการเดินทาง</strong>
+    <table style="margin-top:8px;margin-bottom:16px">
+      <thead><tr><th>ต้นทาง</th><th>ปลายทาง</th><th>ระยะ(กม.)</th><th>ค่าเดินทาง</th></tr></thead>
+      <tbody>${r.trips.map(t=>`<tr><td>${t.origin||'-'}</td><td>${t.destination||'-'}</td><td>${t.distance}</td><td>${fmt(t.amount)}</td></tr>`).join('')}
+      <tr style="font-weight:700"><td colspan="3">รวม</td><td>${fmt(tripTotal)}</td></tr></tbody>
+    </table>` : ''}
+
+    <div style="background:#f7fafc;padding:12px;border-radius:8px;text-align:right;font-size:18px;font-weight:700">
+      ยอดรวม: <span style="color:#2d6a9f">${fmt(r.total_amount)}</span>
+    </div>
+    ${r.notes ? `<div style="margin-top:10px;color:#888">หมายเหตุ: ${r.notes}</div>` : ''}
+  `;
+
+  const role = currentProfile?.role;
+  const btnArea = document.getElementById('approve-buttons');
+  if (['owner','admin','manager'].includes(role) && r.status === 'pending') {
+    btnArea.innerHTML = `
+      <input class="form-control" id="approve-notes" placeholder="หมายเหตุ (ถ้ามี)" style="flex:1">
+      <button class="btn btn-danger" onclick="doApprove('${r.id}', false)">ปฏิเสธ</button>
+      <button class="btn btn-success" onclick="doApprove('${r.id}', true)">อนุมัติ ✓</button>`;
+  } else {
+    btnArea.innerHTML = `<button class="btn btn-outline" onclick="closeModal('modal-approve')">ปิด</button>`;
+  }
+  openModal('modal-approve');
+};
+
+// ── Approval Tab ──────────────────────────────────────────────
+async function loadApproval() {
+  const { data } = await sb.from('petty_cash')
+    .select('*, companies(name), profiles!created_by(full_name)')
+    .order('created_at', { ascending: false });
+
+  const role = currentProfile?.role;
+  const items = (data||[]).filter(r => {
+    if (['owner','admin'].includes(role)) return true;
+    if (role === 'manager') return r.company_id === currentProfile.company_id;
+    return false;
+  });
+
+  const tbody = document.getElementById('approval-list');
+  tbody.innerHTML = items.map(r => `
+    <tr class="${r.status==='pending'?'pending-row':''}">
+      <td><strong>${r.doc_no}</strong></td>
+      <td>${fmtDate(r.doc_date)}</td>
+      <td>${r.profiles?.full_name||'-'}</td>
+      <td>${r.companies?.name||'-'}</td>
+      <td>${fmt(r.total_amount)}</td>
+      <td>${badgeHtml(r.status)}</td>
+      <td><button class="btn btn-sm btn-outline" onclick="viewPC('${r.id}')">ดู</button></td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#999">ไม่มีเอกสาร</td></tr>';
+}
+
+window.doApprove = async (id, approved) => {
+  const notes = document.getElementById('approve-notes')?.value || '';
+  loading(true);
+  await sb.from('petty_cash').update({
+    status: approved ? 'approved' : 'rejected',
+    approved_by: currentUser.id,
+    approved_at: new Date().toISOString(),
+    notes
+  }).eq('id', id);
+  toast(approved ? 'อนุมัติแล้ว ✓' : 'ปฏิเสธแล้ว');
+  closeModal('modal-approve');
+  loading(false);
+  loadApproval();
+  loadDashboard();
+};
+
+// ── Admin: Users ──────────────────────────────────────────────
+async function loadUsers() {
+  const { data } = await sb.from('profiles').select('*, companies(name)').order('full_name');
+  const tbody = document.getElementById('user-list');
+  tbody.innerHTML = (data||[]).map(u => `
+    <tr>
+      <td>${u.full_name}</td>
+      <td>${u.id}</td>
+      <td>${u.companies?.name||'-'}</td>
+      <td><span class="badge badge-${u.role==='owner'?'approved':u.role==='admin'?'pending':'draft'}">${u.role}</span></td>
+      <td><button class="btn btn-sm btn-outline" onclick="editUser('${u.id}')">แก้ไข</button></td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#999">ยังไม่มีผู้ใช้</td></tr>';
+}
+
+window.openUserForm = () => toast('กรุณาเพิ่มผู้ใช้ผ่าน Supabase Dashboard > Authentication > Users แล้วแก้ไข role ใน Table Editor ครับ');
+window.editUser = (id) => toast('แก้ไขสิทธิ์ได้ที่ Supabase Dashboard > Table Editor > profiles ครับ');
+
+// ── Expense / Trip rows ───────────────────────────────────────
+window.addExpenseRow = (desc='', amt='') => {
+  const div = document.createElement('div');
+  div.className = 'item-row expense-row';
+  div.innerHTML = `
+    <input placeholder="รายการ" value="${desc}" oninput="updateTotals()">
+    <input type="number" placeholder="฿" value="${amt}" oninput="updateTotals()" style="text-align:right">
+    <button class="btn-del-row" onclick="this.closest('.item-row').remove();updateTotals()">✕</button>`;
+  document.getElementById('expense-rows').appendChild(div);
+  updateTotals();
+};
+
+window.addTripRow = (from='', to='', dist='') => {
+  const div = document.createElement('div');
+  div.className = 'item-row trip-row';
+  div.innerHTML = `
+    <input placeholder="ต้นทาง" value="${from}" oninput="updateTotals()">
+    <input placeholder="ปลายทาง" value="${to}" oninput="updateTotals()">
+    <input type="number" placeholder="กม." value="${dist}" oninput="updateTotals()" style="text-align:right">
+    <button class="btn-del-row" onclick="this.closest('.item-row').remove();updateTotals()">✕</button>`;
+  document.getElementById('trip-rows').appendChild(div);
+  updateTotals();
+};
+
+window.updateTotals = () => {
+  let expTotal = 0;
+  document.querySelectorAll('#expense-rows .item-row').forEach(row => {
+    expTotal += parseFloat(row.querySelectorAll('input')[1].value) || 0;
+  });
+  let tripTotal = 0;
+  document.querySelectorAll('#trip-rows .item-row').forEach(row => {
+    tripTotal += (parseFloat(row.querySelectorAll('input')[2].value) || 0) * 5;
+  });
+  document.getElementById('exp-subtotal').textContent = fmt(expTotal);
+  document.getElementById('trip-subtotal').textContent = fmt(tripTotal);
+  document.getElementById('pc-grand-total').textContent = fmt(expTotal + tripTotal);
+};
+</script>
+</body>
+</html>
