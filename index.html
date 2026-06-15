@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ระบบจัดการงานก่อสร้าง - TCCL / YEG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <link rel="stylesheet" href="css/style.css">
 <style>
 /* ─── Login ─────────────────────────────────────────────── */
@@ -292,29 +295,47 @@ tr:hover td { background:#fafbfc; }
 <div id="login-screen">
   <!-- หน้า Login -->
   <div class="login-card" id="card-login">
-    <div class="login-logo">🏗️</div>
-    <div class="login-title">ระบบจัดการงานก่อสร้าง</div>
-    <div class="login-sub">TCCL / Yipintsoi Energy</div>
-    <input type="email" id="login-email" placeholder="อีเมล" autocomplete="email">
-    <input type="password" id="login-password" placeholder="รหัสผ่าน" autocomplete="current-password">
-    <button class="btn-login" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div class="login-logo-wrap">
+      <i data-lucide="hard-hat" style="width:36px;height:36px;color:#fff;stroke-width:1.5"></i>
+    </div>
+    <div class="login-title">ยินดีต้อนรับ</div>
+    <div class="login-sub">ระบบจัดการงานก่อสร้าง TCCL / YEG</div>
+    <label class="login-label">อีเมล</label>
+    <input type="email" id="login-email" placeholder="กรอกอีเมลของคุณ" autocomplete="email">
+    <label class="login-label">รหัสผ่าน</label>
+    <input type="password" id="login-password" placeholder="กรอกรหัสผ่าน" autocomplete="current-password">
+    <button class="btn-login" onclick="doLogin()">
+      <i data-lucide="log-in" style="width:18px;height:18px"></i>
+      เข้าสู่ระบบ
+    </button>
     <div class="login-error" id="login-error"></div>
-    <div class="login-switch">ยังไม่มีบัญชี? <a onclick="showRegister()">สมัครสมาชิก</a></div>
+    <div class="login-divider">หรือ</div>
+    <div class="login-switch">ยังไม่มีบัญชี? <a onclick="showRegister()">สมัครสมาชิกที่นี่</a></div>
   </div>
 
   <!-- หน้าสมัครสมาชิก -->
   <div class="login-card" id="card-register" style="display:none">
-    <div class="login-logo">📝</div>
+    <div class="login-logo-wrap" style="background:linear-gradient(135deg,#16a34a,#22c55e)">
+      <i data-lucide="user-plus" style="width:36px;height:36px;color:#fff;stroke-width:1.5"></i>
+    </div>
     <div class="login-title">สมัครสมาชิก</div>
-    <div class="login-sub">กรอกข้อมูลเพื่อสมัครใช้งาน</div>
-    <input type="text" id="reg-name" placeholder="ชื่อ-นามสกุล">
-    <input type="email" id="reg-email" placeholder="อีเมล">
-    <input type="password" id="reg-password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)">
+    <div class="login-sub">กรอกข้อมูลเพื่อเริ่มใช้งานระบบ</div>
+    <label class="login-label">ชื่อ-นามสกุล</label>
+    <input type="text" id="reg-name" placeholder="เช่น สมชาย ใจดี">
+    <label class="login-label">อีเมล</label>
+    <input type="email" id="reg-email" placeholder="กรอกอีเมลของคุณ">
+    <label class="login-label">รหัสผ่าน</label>
+    <input type="password" id="reg-password" placeholder="อย่างน้อย 6 ตัวอักษร">
+    <label class="login-label">บริษัท</label>
     <select id="reg-company">
-      <option value="">-- เลือกบริษัท --</option>
+      <option value="">-- เลือกบริษัทของคุณ --</option>
     </select>
-    <button class="btn-register" onclick="doRegister()">สมัครสมาชิก</button>
+    <button class="btn-register" onclick="doRegister()">
+      <i data-lucide="user-check" style="width:18px;height:18px"></i>
+      สมัครสมาชิก
+    </button>
     <div class="login-error" id="reg-error"></div>
+    <div class="login-divider">หรือ</div>
     <div class="login-switch">มีบัญชีแล้ว? <a onclick="showLogin()">เข้าสู่ระบบ</a></div>
   </div>
 </div>
@@ -325,19 +346,45 @@ tr:hover td { background:#fafbfc; }
 <div id="app-screen">
   <!-- Top Bar -->
   <div class="top-bar">
-    <div class="top-bar-title">🏗️ ระบบจัดการงานก่อสร้าง</div>
+    <div class="top-bar-brand">
+      <div class="top-bar-icon">
+        <i data-lucide="hard-hat" style="width:20px;height:20px;color:#fff;stroke-width:2"></i>
+      </div>
+      <div>
+        <div class="top-bar-title">ระบบจัดการงานก่อสร้าง</div>
+        <div class="top-bar-sub">TCCL / Yipintsoi Energy</div>
+      </div>
+    </div>
     <div class="top-bar-user">
-      <span id="user-display"></span>
-      <button class="btn-logout" onclick="doLogout()">ออกจากระบบ</button>
+      <div class="user-chip">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name-display">-</div>
+          <div class="user-role" id="user-role-display">-</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">
+        <i data-lucide="log-out" style="width:14px;height:14px"></i>
+        ออก
+      </button>
     </div>
   </div>
 
   <!-- Nav Tabs -->
   <div class="nav-tabs" id="nav-tabs">
-    <div class="nav-tab active" onclick="switchTab('dashboard')">📊 ภาพรวม</div>
-    <div class="nav-tab" onclick="switchTab('petty-cash')">💰 เบิกเงินสดย่อย</div>
-    <div class="nav-tab" onclick="switchTab('approval')">✅ อนุมัติเอกสาร</div>
-    <div class="nav-tab admin-only" onclick="switchTab('admin')" style="display:none">⚙️ จัดการผู้ใช้</div>
+    <div class="nav-tab active" onclick="switchTab('dashboard',this)">
+      <i data-lucide="layout-dashboard" class="tab-icon"></i> ภาพรวม
+    </div>
+    <div class="nav-tab" onclick="switchTab('petty-cash',this)">
+      <i data-lucide="wallet" class="tab-icon"></i> เบิกเงินสดย่อย
+    </div>
+    <div class="nav-tab" onclick="switchTab('approval',this)">
+      <i data-lucide="check-circle" class="tab-icon"></i> อนุมัติเอกสาร
+      <span class="nav-badge" id="pending-badge" style="display:none">0</span>
+    </div>
+    <div class="nav-tab admin-only" onclick="switchTab('admin',this)" style="display:none">
+      <i data-lucide="users" class="tab-icon"></i> จัดการผู้ใช้
+    </div>
   </div>
 
   <div class="main-content">
@@ -560,8 +607,13 @@ tr:hover td { background:#fafbfc; }
 
 <!-- Toast & Loading -->
 <div id="toast"></div>
-<div id="loading" class="show">⏳ กำลังโหลด...</div>
+<div id="loading" class="show"><div class="spinner"></div>กำลังโหลด...</div>
 
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  });
+</script>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -695,8 +747,18 @@ async function initApp(user) {
 
   // UI
   const role = currentProfile?.role || 'staff';
-  document.getElementById('user-display').textContent =
-    `${currentProfile?.full_name || user.email} (${role}) · ${currentProfile?.companies?.name || ''}`;
+  const displayName = currentProfile?.full_name || user.email;
+  const companyName = currentProfile?.companies?.name || '';
+  document.getElementById('user-name-display').textContent = displayName;
+  document.getElementById('user-role-display').textContent = `${role} · ${companyName}`;
+  document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
+  // update pending badge
+  const { data: pending } = await sb.from('petty_cash').select('id', { count: 'exact' }).eq('status','pending');
+  const cnt = pending?.length || 0;
+  const badge = document.getElementById('pending-badge');
+  badge.textContent = cnt;
+  badge.style.display = cnt > 0 ? '' : 'none';
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 
   // Show admin tab only for admin/owner
   if (['admin','owner'].includes(role)) {
@@ -725,11 +787,11 @@ async function initApp(user) {
 })();
 
 // ── Tabs ──────────────────────────────────────────────────────
-window.switchTab = (name) => {
+window.switchTab = (name, el) => {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  event.target.classList.add('active');
+  (el || event?.target?.closest?.('.nav-tab'))?.classList.add('active');
   if (name === 'dashboard') loadDashboard();
   if (name === 'petty-cash') loadPettyCash();
   if (name === 'approval') loadApproval();
