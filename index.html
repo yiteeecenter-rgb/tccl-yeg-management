@@ -585,10 +585,8 @@ select.form-control { font-family:unset; }
           <input type="checkbox" id="pc-is-so" style="width:16px;height:16px"> SO
         </label>
         <input class="form-control" id="pc-so-number" placeholder="เลข SO" style="max-width:140px">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="pc-is-project" style="width:16px;height:16px"> Project
-        </label>
-        <input class="form-control" id="pc-project-number" placeholder="เลข Project" style="max-width:160px">
+        <input type="hidden" id="pc-is-project" value="false">
+        <input type="hidden" id="pc-project-number" value="">
       </div>
 
       <!-- ── รายการค่าใช้จ่าย ── -->
@@ -2025,6 +2023,9 @@ window.updatePreview = () => {
     });
   });
 
+  // collect unique job codes for Project field
+  const allJobCodes = [...new Set(trips.map(t => t.job_code).filter(Boolean))].join(', ');
+
   // group by job_code
   const groups = {};
   trips.forEach(t => {
@@ -2190,11 +2191,11 @@ window.updatePreview = () => {
     <!-- ส่วน/ฝ่าย/รหัส -->
     <div style="display:flex;align-items:baseline;gap:4px;margin-top:16px;margin-bottom:4px">
       <span style="white-space:nowrap">ส่วน</span>
-      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${dept||'&nbsp;'}</span>
+      <span style="flex:1;border-bottom:1px solid #000;padding:4px 4px 2px">${dept||'&nbsp;'}</span>
       <span style="white-space:nowrap;margin-left:8px">ฝ่าย</span>
-      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${div_||'&nbsp;'}</span>
+      <span style="flex:1;border-bottom:1px solid #000;padding:4px 4px 2px;white-space:nowrap">${div_||'&nbsp;'}</span>
       <span style="white-space:nowrap;margin-left:8px">รหัสหน่วยงาน</span>
-      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${unit||'&nbsp;'}</span>
+      <span style="flex:0 0 auto;min-width:130px;border-bottom:1px solid #000;padding:4px 4px 2px;white-space:nowrap">${unit||'&nbsp;'}</span>
     </div>
 
     <!-- วัตถุประสงค์ -->
@@ -2203,8 +2204,8 @@ window.updatePreview = () => {
       <span style="flex:2;min-width:60px;border-bottom:1px solid #000;padding:4px 4px 2px">${purpose||'&nbsp;'}</span>
       <span style="white-space:nowrap;margin-left:8px">☐ SO</span>
       <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${isSO?soNo:'&nbsp;'}</span>
-      <span style="white-space:nowrap;margin-left:8px">☐ Project</span>
-      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${isProj?projNo:'&nbsp;'}</span>
+      <span style="white-space:nowrap;margin-left:8px">${allJobCodes?'☑':'☐'} Project</span>
+      <span style="flex:1;min-width:40px;border-bottom:1px solid #000;padding:4px 4px 2px">${allJobCodes||'&nbsp;'}</span>
     </div>
 
     <!-- ตาราง -->
@@ -2451,7 +2452,8 @@ window.printFromDetail = async (id) => {
   loading(true);
   const { data: r } = await sb.from('petty_cash').select('*, expenses(*), trips(*)').eq('id', id).single();
   loading(false);
-  // โหลดข้อมูลเข้า hidden fields โดยไม่ปิด modal และไม่เปิด modal-pc
+
+  // populate form exactly like editPC (no openModal)
   document.getElementById('pc-id').value = r.id;
   document.getElementById('pc-doc-no').value = r.doc_no;
   document.getElementById('pc-date').value = r.doc_date;
@@ -2468,14 +2470,15 @@ window.printFromDetail = async (id) => {
   sel.value = r.company_id;
   document.getElementById('trip-rows').innerHTML = '';
   (r.trips || []).forEach(t => addTripRow(t));
-  document.getElementById('expense-rows').innerHTML = '';
-  (r.expenses || []).forEach(e => addExpenseRow(e.description, e.amount, e.photo_url));
   updateTotals();
-  // render preview content แล้วพิมพ์ทันที modal-approve ยังเปิดอยู่
+
+  // generate preview HTML then print (same as clicking พิมพ์ in modal-pc)
   previewOpen = true;
   updatePreview();
-  setTimeout(() => { previewOpen = false; printPreview(); }, 100);
+  previewOpen = false;
+  printPreview();
 };
+
 </script>
 </body>
 </html>
