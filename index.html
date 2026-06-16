@@ -2449,11 +2449,31 @@ window.printPC = async (id) => {
 
 window.printFromDetail = async (id) => {
   closeModal('modal-approve');
-  await editPC(id);
-  // force preview open then print
+  // โหลดข้อมูลเข้า form fields โดยไม่เปิด modal-pc
+  loading(true);
+  const { data: r } = await sb.from('petty_cash').select('*, expenses(*), trips(*)').eq('id', id).single();
+  loading(false);
+  document.getElementById('pc-id').value = r.id;
+  document.getElementById('pc-doc-no').value = r.doc_no;
+  document.getElementById('pc-date').value = r.doc_date;
+  document.getElementById('pc-purpose').value = r.purpose || '';
+  document.getElementById('pc-department').value = r.department || '';
+  document.getElementById('pc-division').value = r.division || '';
+  document.getElementById('pc-unit-code').value = r.unit_code || '';
+  document.getElementById('pc-is-so').checked = r.is_so || false;
+  document.getElementById('pc-so-number').value = r.so_number || '';
+  document.getElementById('pc-is-project').checked = r.is_project || false;
+  document.getElementById('pc-project-number').value = r.project_number || '';
+  const sel = document.getElementById('pc-company');
+  sel.innerHTML = companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  sel.value = r.company_id;
+  document.getElementById('trip-rows').innerHTML = '';
+  (r.trips || []).forEach(t => addTripRow(t));
+  document.getElementById('expense-rows').innerHTML = '';
+  (r.expenses || []).forEach(e => addExpenseRow(e.description, e.amount, e.photo_url));
+  updateTotals();
+  // render preview แล้วพิมพ์เลย ไม่เปิด modal
   previewOpen = true;
-  document.getElementById('pc-preview-panel').style.display = '';
-  document.getElementById('modal-pc-inner').closest('.modal-box')?.classList.add('preview-open');
   updatePreview();
   setTimeout(() => printPreview(), 300);
 };
