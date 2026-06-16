@@ -1691,9 +1691,9 @@ window.addTripRow = (t={}) => {
     <!-- Row 2: ประเภทงาน + งาน/โปรเจค -->
     <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-bottom:8px;align-items:end">
       <div>
-        <div style="font-size:11px;color:#888;margin-bottom:3px">ประเภทงาน</div>
+        <div style="font-size:11px;color:#888;margin-bottom:3px">หน่วยงาน</div>
         <select data-field="job_category" onchange="onCategorySelect(this)" style="width:100%">
-          <option value="">-- ประเภท --</option>
+          <option value="">-- หน่วยงาน --</option>
           ${[...new Set(jobsList.map(j=>j.category).filter(Boolean))].map(c=>`<option value="${c}" ${precat===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
