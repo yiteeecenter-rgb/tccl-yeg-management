@@ -2448,11 +2448,10 @@ window.printPC = async (id) => {
 };
 
 window.printFromDetail = async (id) => {
-  closeModal('modal-approve');
-  // โหลดข้อมูลเข้า form fields โดยไม่เปิด modal-pc
   loading(true);
   const { data: r } = await sb.from('petty_cash').select('*, expenses(*), trips(*)').eq('id', id).single();
   loading(false);
+  // โหลดข้อมูลเข้า hidden fields โดยไม่ปิด modal และไม่เปิด modal-pc
   document.getElementById('pc-id').value = r.id;
   document.getElementById('pc-doc-no').value = r.doc_no;
   document.getElementById('pc-date').value = r.doc_date;
@@ -2472,10 +2471,10 @@ window.printFromDetail = async (id) => {
   document.getElementById('expense-rows').innerHTML = '';
   (r.expenses || []).forEach(e => addExpenseRow(e.description, e.amount, e.photo_url));
   updateTotals();
-  // render preview แล้วพิมพ์เลย ไม่เปิด modal
+  // render preview content แล้วพิมพ์ทันที modal-approve ยังเปิดอยู่
   previewOpen = true;
   updatePreview();
-  setTimeout(() => printPreview(), 300);
+  setTimeout(() => { previewOpen = false; printPreview(); }, 100);
 };
 </script>
 </body>
