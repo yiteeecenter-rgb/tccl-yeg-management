@@ -60,6 +60,29 @@ window.runFix = async () => {
     auth: { autoRefreshToken: false, persistSession: false }
   });
 
+  // ── Migration SQL ──────────────────────────────────────────
+  const migrations = [
+    {
+      name: 'Migration v5: global installer columns',
+      sql: `ALTER TABLE termination_records
+  ADD COLUMN IF NOT EXISTS global_install_name      TEXT,
+  ADD COLUMN IF NOT EXISTS global_install_date      DATE,
+  ADD COLUMN IF NOT EXISTS global_install_signature TEXT;`
+    },
+  ];
+
+  log('── รัน Database Migrations ──', 'info');
+  for (const m of migrations) {
+    log(`กำลัง apply: ${m.name}...`);
+    const mRes = await fetch(
+      `https://api.supabase.com/v1/projects/ilapjwjswpswdxzfmmqn/database/query`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${svcKey}` }, body: JSON.stringify({ query: m.sql }) }
+    );
+    if (mRes.ok) { log(`✓ ${m.name}`, 'ok'); }
+    else { const e = await mRes.text(); log(`⚠ ${m.name}: ${e}`, 'err'); }
+  }
+
+  log('── ตั้งค่า Storage Policy ──', 'info');
   const policies = [
     {
       name: 'Allow authenticated uploads',
