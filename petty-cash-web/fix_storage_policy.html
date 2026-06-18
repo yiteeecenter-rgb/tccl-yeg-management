@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Fix Storage Policy</title>
+<style>
+body { font-family: sans-serif; max-width: 560px; margin: 60px auto; padding: 20px; color: #1e293b; }
+h2 { color: #047857; margin-bottom: 4px; }
+p { color: #64748b; font-size: 14px; margin-bottom: 20px; }
+label { font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px; }
+input { width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 8px;
+        font-size: 13px; box-sizing: border-box; margin-bottom: 14px; }
+button { background: #047857; color: #fff; border: none; padding: 12px 24px; border-radius: 8px;
+         font-size: 15px; cursor: pointer; width: 100%; font-weight: 600; }
+button:hover { background: #065f46; }
+button:disabled { background: #94a3b8; cursor: not-allowed; }
+#log { margin-top: 20px; font-size: 13px; line-height: 2; }
+.ok  { color: #16a34a; font-weight: 600; }
+.err { color: #dc2626; }
+.info{ color: #2563eb; }
+.card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+a { color: #047857; }
+</style>
+</head>
+<body>
+<h2>🔧 Fix Storage Policy</h2>
+<p>แก้ไข RLS policy ของ Supabase Storage bucket <strong>termination-photos</strong><br>
+   เพื่อให้ upload/read รูปได้ปกติ</p>
+
+<div class="card">
+  <label>Service Role Key (ได้จาก Project Settings → API → service_role)</label>
+  <input id="svc-key" type="password" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+  <small style="display:block;margin-bottom:14px;color:#94a3b8;font-size:11px">
+    🔗 <a href="https://supabase.com/dashboard/project/ilapjwjswpswdxzfmmqn/settings/api" target="_blank">
+    เปิด Project Settings → API
+    </a>
+  </small>
+  <button id="btn" onclick="runFix()">▶ แก้ไข Policy</button>
+</div>
+<div id="log"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const PROJECT_URL = 'https://ilapjwjswpswdxzfmmqn.supabase.co';
+
+function log(msg, type = 'info') {
+  document.getElementById('log').innerHTML += `<div class="${type}">▸ ${msg}</div>`;
+}
+
+window.runFix = async () => {
+  const svcKey = document.getElementById('svc-key').value.trim();
+  if (!svcKey) { alert('กรุณากรอก Service Role Key ก่อนครับ'); return; }
+
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+  document.getElementById('log').innerHTML = '';
+
+  const sb = createClient(PROJECT_URL, svcKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+
+  const policies = [
+    {
+      name: 'Allow authenticated uploads',
+      sql: `CREATE POLICY IF NOT EXISTS "Allow authenticated uploads"
+            ON storage.objects FOR INSERT TO authenticated
+            WITH CHECK (bucket_id = 'termination-photos');`
+    },
+    {
+      name: 'Allow authenticated reads',
+      sql: `CREATE POLICY IF NOT EXISTS "Allow authenticated reads"
+            ON storage.objects FOR SELECT TO authenticated
+            USING (bucket_id = 'termination-photos');`
+    },
+    {
+      name: 'Allow authenticated updates',
+      sql: `CREATE POLICY IF NOT EXISTS "Allow authenticated updates"
+            ON storage.objects FOR UPDATE TO authenticated
+            USING (bucket_id = 'termination-photos');`
+    },
+    {
+      name: 'Allow authenticated deletes',
+      sql: `CREATE POLICY IF NOT EXISTS "Allow authenticated deletes"
+            ON storage.objects FOR DELETE TO authenticated
+            USING (bucket_id = 'termination-photos');`
+    },
+  ];
+
+  try {
+    for (const p of policies) {
+      log(`กำลังสร้าง policy: ${p.name}...`);
+      const res = await fetch(`${PROJECT_URL}/rest/v1/rpc/exec_sql`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': svcKey,
+          'Authorization': `Bearer ${svcKey}`,
+        },
+        body: JSON.stringify({ sql: p.sql }),
+      });
+
+      if (!res.ok) {
+        // fallback: use Supabase management API
+        const mgmtRes = await fetch(
+          `https://api.supabase.com/v1/projects/ilapjwjswpswdxzfmmqn/database/query`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${svcKey}`,
+            },
+            body: JSON.stringify({ query: p.sql }),
+          }
+        );
+        if (!mgmtRes.ok) {
+          const err = await mgmtRes.text();
+          log(`⚠ ${p.name}: ใช้ Management API แล้วก็ไม่ผ่าน — ${err}`, 'err');
+          continue;
+        }
+      }
+      log(`✓ ${p.name}`, 'ok');
+    }
+
+    // also make bucket public
+    log('กำลังตั้ง bucket เป็น public...');
+    const pubRes = await fetch(`${PROJECT_URL}/storage/v1/bucket/termination-photos`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': svcKey,
+        'Authorization': `Bearer ${svcKey}`,
+      },
+      body: JSON.stringify({ public: true }),
+    });
+    if (pubRes.ok) {
+      log('✓ Bucket ตั้งเป็น public สำเร็จ — รูปเก่าจะโหลดได้ทันที', 'ok');
+    } else {
+      const e = await pubRes.text();
+      log(`⚠ ตั้ง bucket public ไม่สำเร็จ: ${e}`, 'err');
+    }
+
+    log('✅ เสร็จสิ้น! ลองอัพโหลดรูปใหม่ได้เลยครับ', 'ok');
+  } catch (ex) {
+    log(`เกิดข้อผิดพลาด: ${ex.message}`, 'err');
+  }
+
+  btn.disabled = false;
+};
+</script>
+</body>
+</html>

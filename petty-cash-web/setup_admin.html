@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Setup Admin - Construction Management</title>
+<style>
+body { font-family: sans-serif; max-width: 500px; margin: 60px auto; padding: 20px; }
+h2 { color: #1a3c5e; }
+.card { background: #f7fafc; border-radius: 12px; padding: 24px; margin-top: 20px; }
+button { background: #2d6a9f; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; margin-top: 12px; }
+button:hover { background: #1a3c5e; }
+#log { margin-top: 16px; font-size: 14px; line-height: 1.8; }
+.ok { color: #38a169; font-weight: 700; }
+.err { color: #e53e3e; }
+input { width: 100%; padding: 10px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; margin-top: 6px; }
+label { font-size: 13px; font-weight: 600; color: #444; display: block; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h2>🔧 ตั้งค่าระบบครั้งแรก</h2>
+<p>หน้านี้จะสร้างข้อมูลเริ่มต้น (บริษัท + Admin) ให้อัตโนมัติครับ</p>
+
+<div class="card">
+  <label>อีเมล Admin</label>
+  <input id="email" value="admin@tccl.com">
+  <label>รหัสผ่าน</label>
+  <input id="pass" type="password" value="123456">
+  <label>ชื่อเต็ม Admin</label>
+  <input id="name" value="ผู้ดูแลระบบ">
+  <button onclick="runSetup()">▶ เริ่มติดตั้ง</button>
+</div>
+
+<div id="log"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const sb = createClient(
+  'https://ilapjwjswpswdxzfmmqn.supabase.co',
+  'sb_publishable_D_sigwHyTwWW8J6Rhllg9w_SX75bazV'
+);
+
+function log(msg, type = '') {
+  document.getElementById('log').innerHTML += `<div class="${type}">▸ ${msg}</div>`;
+}
+
+window.runSetup = async () => {
+  document.getElementById('log').innerHTML = '';
+  const email = document.getElementById('email').value;
+  const pass = document.getElementById('pass').value;
+  const name = document.getElementById('name').value;
+
+  try {
+    // 1. Login
+    log('กำลัง Login...');
+    const { data: auth, error: authErr } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (authErr) throw new Error('Login ไม่สำเร็จ: ' + authErr.message);
+    log('Login สำเร็จ ✓', 'ok');
+
+    const uid = auth.user.id;
+
+    // 2. Insert companies
+    log('กำลังสร้างข้อมูลบริษัท...');
+    await sb.from('companies').upsert([
+      { name: 'TCCL', short_name: 'TCCL' },
+      { name: 'Yipintsoi Energy', short_name: 'YEG' }
+    ], { onConflict: 'name' });
+    log('สร้างบริษัท TCCL และ Yipintsoi Energy ✓', 'ok');
+
+    // 3. Get TCCL id
+    const { data: companies } = await sb.from('companies').select('id,name').order('name');
+    const tccl = companies.find(c => c.short_name === 'TCCL' || c.name === 'TCCL');
+    log(`บริษัท: ${companies.map(c=>c.name).join(', ')} ✓`, 'ok');
+
+    // 4. Insert admin profile
+    log('กำลังสร้าง Admin profile...');
+    const { error: profErr } = await sb.from('profiles').upsert({
+      id: uid,
+      full_name: name,
+      role: 'admin',
+      company_id: tccl?.id || null
+    }, { onConflict: 'id' });
+    if (profErr) throw new Error('สร้าง Profile ไม่สำเร็จ: ' + profErr.message);
+    log('สร้าง Admin profile ✓', 'ok');
+
+    log('──────────────────────────', 'ok');
+    log('✅ ติดตั้งเสร็จแล้ว! เปิด index.html แล้ว Login ด้วย ' + email, 'ok');
+
+  } catch(e) {
+    log('❌ Error: ' + e.message, 'err');
+  }
+};
+</script>
+</body>
+</html>
