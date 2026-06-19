@@ -1517,7 +1517,7 @@ window._tkSave = async function (opts = {}) {
       f.kit_brand    = g2('kit-brand')    || f.kit_brand    || '';
       f.kit_type     = g2('kit-type')     || f.kit_type     || '';
       f.kit_model    = g2('kit-model')    || f.kit_model    || '';
-      f.install_name     = g('tkf-global-install-name') || f.install_name || '';
+      f.install_name     = document.getElementById('tkf-global-install-name')?.value || f.install_name || '';
       f.install_date     = g2('install-date') || f.install_date     || '';
       f.install_position = g2('install-pos')  || f.install_position || '';
     });
