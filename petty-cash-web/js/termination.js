@@ -401,6 +401,14 @@ function feederCardHTML(idx, f = {}) {
         </div>
         <div>
           <label style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;
+                        letter-spacing:.4px;display:block;margin-bottom:3px">วันที่ติดตั้ง</label>
+          <input id="tkf-f${idx}-install-date" type="date" class="form-control"
+            value="${escH(f.install_date || '')}"
+            oninput="window._tkLivePreview()"
+            style="border-radius:7px;font-size:11px">
+        </div>
+        <div>
+          <label style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;
                         letter-spacing:.4px;display:block;margin-bottom:3px">แรงดัน (kV)</label>
           <select id="tkf-f${idx}-voltage" class="form-control"
                   onchange="window._tkLivePreview()"
@@ -954,14 +962,8 @@ function injectModal() {
                 style="border-radius:7px;border-color:#99f6e4">
             </div>
           </div>
-          <!-- row 2: วันที่ + ลายเซ็น -->
-          <div style="display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:start">
-            <div>
-              <label style="font-size:9px;font-weight:600;color:#64748b;text-transform:uppercase;
-                            letter-spacing:.4px;display:block;margin-bottom:3px">วันที่ติดตั้ง</label>
-              <input id="tkf-global-install-date" type="date" class="form-control"
-                style="border-radius:7px;border-color:#99f6e4" oninput="window._tkLivePreview()">
-            </div>
+          <!-- row 2: ลายเซ็น -->
+          <div style="display:grid;grid-template-columns:1fr;gap:12px;align-items:start">
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
                 <label style="font-size:9px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.4px">ลายเซ็น</label>
@@ -1288,7 +1290,7 @@ function getFormValues() {
       kit_model:           g(`tkf-f${idx}-kit-model`),
       detail_image_url:    feeders[idx]?.detail_image_url || null,
       install_name:        g('tkf-global-install-name'),
-      install_date:        g('tkf-global-install-date') || null,
+      install_date:        g(`tkf-f${idx}-install-date`) || null,
       install_position:    g(`tkf-f${idx}-install-pos`) || null,
       install_signature:   globalInstallerSig || null,
       measurements,
@@ -1305,7 +1307,7 @@ function getFormValues() {
     witness2_company:        g('tkf-w2-company'),
     witness2_name:           g('tkf-w2-name'),
     global_install_name:     g('tkf-global-install-name') || null,
-    global_install_date:     g('tkf-global-install-date') || null,
+    global_install_date:     null,
     global_install_signature: globalInstallerSig || null,
     feeders:                 feedersData,
   };
@@ -1321,10 +1323,9 @@ function fillForm(d) {
   sv('tkf-w1-name',                d.witness1_name || '');
   sv('tkf-w2-company',             d.witness2_company || '');
   sv('tkf-w2-name',                d.witness2_name || '');
-  // global installer — fallback to first feeder's data for backward compat
+  // global installer
   const _f0 = d.feeders?.[0];
   sv('tkf-global-install-name', d.global_install_name || _f0?.install_name || '');
-  sv('tkf-global-install-date', d.global_install_date || _f0?.install_date || '');
   globalInstallerSig = d.global_install_signature || _f0?.install_signature || null;
   _tkRestoreGlobalSig();
   updateJobInfoBar();
@@ -1346,6 +1347,7 @@ function fillForm(d) {
     if (f.kit_brand && f.kit_type && f.kit_model) window._tkKitModelChange(i);
 
     sv2('install-pos',     f.install_position || '');
+    sv2('install-date',    f.install_date || d.global_install_date || '');
     _tkUpdateFeederHeader(i);
     _tkRestoreSig(i);
 
@@ -1515,7 +1517,7 @@ window._tkSave = async function (opts = {}) {
       f.kit_brand    = g2('kit-brand')    || f.kit_brand    || '';
       f.kit_type     = g2('kit-type')     || f.kit_type     || '';
       f.kit_model    = g2('kit-model')    || f.kit_model    || '';
-      f.install_name     = g2('install-name') || f.install_name     || '';
+      f.install_name     = g('tkf-global-install-name') || f.install_name || '';
       f.install_date     = g2('install-date') || f.install_date     || '';
       f.install_position = g2('install-pos')  || f.install_position || '';
     });
