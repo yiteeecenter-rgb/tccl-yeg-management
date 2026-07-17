@@ -289,8 +289,9 @@ function leafRowHTML(topic) {
     <div style="flex:1;font-size:13px;color:#334155">${escH(topic.title)}</div>
     ${has ? `
       ${isImg
-        ? `<img src="${escH(item.file_url)}" class="photo-preview" style="width:36px;height:36px" onclick="window.open('${escH(item.file_url)}','_blank')">`
-        : `<button class="btn btn-sm btn-outline" onclick="window.open('${escH(item.file_url)}','_blank')">📄 ${escH(item.file_name||'ไฟล์')}</button>`}
+        ? `<img src="${escH(item.file_url)}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;cursor:pointer;border:1.5px solid #e2e8f0" onclick="window._mrPreviewFile('${topic.id}')" title="ดูตัวอย่าง">`
+        : `<div style="width:52px;height:52px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px" onclick="window._mrPreviewFile('${topic.id}')" title="ดูตัวอย่าง">📄</div>`}
+      <button class="btn btn-sm btn-outline" onclick="window._mrPreviewFile('${topic.id}')">👁 ดูตัวอย่าง</button>
       <button class="btn-del-row" title="ลบไฟล์" onclick="window._mrItemRemove('${topic.id}')">✕</button>
     ` : `
       <label class="btn btn-sm btn-outline" style="cursor:pointer;margin:0">
@@ -300,6 +301,41 @@ function leafRowHTML(topic) {
     `}
   </div>`;
 }
+
+// ── File preview modal ──────────────────────────────────────
+function injectPreviewModal() {
+  if (document.getElementById('modal-mr-preview')) return;
+  document.body.insertAdjacentHTML('beforeend', `
+<div class="modal-overlay" id="modal-mr-preview">
+  <div class="modal-box" style="max-width:900px;width:90vw;display:flex;flex-direction:column;max-height:92vh">
+    <div class="modal-head">
+      <h3 id="mr-preview-title">ตัวอย่างไฟล์</h3>
+      <button class="modal-close" onclick="document.getElementById('modal-mr-preview').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" id="mr-preview-body" style="overflow:auto;flex:1;display:flex;align-items:center;justify-content:center;background:#f7f9fc;padding:16px"></div>
+    <div class="modal-foot">
+      <a class="btn btn-outline" id="mr-preview-newtab" href="#" target="_blank" rel="noopener">เปิดในแท็บใหม่</a>
+      <button class="btn btn-primary" onclick="document.getElementById('modal-mr-preview').classList.remove('open')">ปิด</button>
+    </div>
+  </div>
+</div>`);
+}
+
+window._mrPreviewFile = function (topicId) {
+  const item = currentItems.find(i => i.topic_id === topicId);
+  if (!item?.file_url) return;
+  const topic = topics.find(t => t.id === topicId);
+  injectPreviewModal();
+  document.getElementById('mr-preview-title').textContent = `${topic ? topic.code + ' ' + topic.title : 'ตัวอย่างไฟล์'}`;
+  document.getElementById('mr-preview-newtab').href = item.file_url;
+  const body = document.getElementById('mr-preview-body');
+  if ((item.file_type || '').startsWith('image/')) {
+    body.innerHTML = `<img src="${escH(item.file_url)}" style="max-width:100%;max-height:75vh;border-radius:8px;object-fit:contain">`;
+  } else {
+    body.innerHTML = `<iframe src="${escH(item.file_url)}" style="width:100%;height:75vh;border:none;border-radius:8px;background:#fff"></iframe>`;
+  }
+  document.getElementById('modal-mr-preview').classList.add('open');
+};
 
 function renderDetailBody() {
   const el = document.getElementById('mr-topics-list');
