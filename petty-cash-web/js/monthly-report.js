@@ -638,21 +638,26 @@ window._mrAddSub = async function (mainId) {
 // ── PDF merge ─────────────────────────────────────────────────
 const A4W = 595.28, A4H = 841.89;
 
-// Modern gradient cover with layered diagonal accent bands — self-contained
-// (fills its parent edge-to-edge), so the parent card needs no padding/background.
+// Modern gradient cover with layered geometric accent bands, a soft glow,
+// and an accent-color pop line — self-contained (fills its parent edge to
+// edge), so the parent card needs no padding/background.
 function coverContentHTML(report) {
   const job = jobsCache.find(j => j.id === report.job_id);
   const initial = escH((report.project_name || job?.job_name || 'P').trim().charAt(0).toUpperCase() || 'P');
   return `
     <div style="position:absolute;inset:0;background:linear-gradient(150deg,#0f2942 0%,#1a3c5e 45%,#2d6a9f 100%)"></div>
+    <div style="position:absolute;width:70%;height:45%;top:-8%;right:-10%;background:radial-gradient(circle,rgba(140,190,255,.22) 0%,rgba(140,190,255,0) 70%)"></div>
     <div style="position:absolute;inset:0;overflow:hidden">
-      <div style="position:absolute;width:150%;height:55%;background:rgba(255,255,255,.07);transform:rotate(-11deg);top:-8%;right:-35%"></div>
+      <div style="position:absolute;width:150%;height:60%;background:rgba(255,255,255,.06);transform:rotate(-11deg);top:-14%;right:-40%"></div>
+      <div style="position:absolute;width:140%;height:30%;background:rgba(255,255,255,.05);transform:rotate(-11deg);top:14%;right:-45%"></div>
       <div style="position:absolute;width:130%;height:38%;background:rgba(255,255,255,.05);transform:rotate(-11deg);bottom:-14%;left:-30%"></div>
-      <div style="position:absolute;width:130%;height:13%;background:rgba(255,255,255,.85);transform:rotate(-11deg);bottom:28%;left:-30%"></div>
+      <div style="position:absolute;width:130%;height:2.4%;background:rgba(240,185,80,.85);transform:rotate(-11deg);bottom:26.5%;left:-30%"></div>
+      <div style="position:absolute;width:130%;height:13%;background:rgba(255,255,255,.92);transform:rotate(-11deg);bottom:29%;left:-30%"></div>
     </div>
     <div style="position:relative;height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:9% 10%;box-sizing:border-box;color:#fff">
-      <div style="width:2.6em;height:2.6em;border-radius:50%;background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center;font-size:1.15em;font-weight:800">${initial}</div>
+      <div style="width:2.7em;height:2.7em;border-radius:50%;background:linear-gradient(135deg,rgba(255,255,255,.22),rgba(255,255,255,.08));border:1.5px solid rgba(255,255,255,.5);box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;font-size:1.2em;font-weight:800;letter-spacing:.5px">${initial}</div>
       <div>
+        <div style="width:2.4em;height:3px;background:#f0b950;margin-bottom:.9em;border-radius:2px"></div>
         <div style="font-size:.85em;letter-spacing:3px;opacity:.8;margin-bottom:.7em">MONTHLY PROGRESS REPORT</div>
         <div style="font-size:2.2em;font-weight:800;line-height:1.3;margin-bottom:.35em">${escH(report.project_name || job?.job_name || 'ยังไม่ระบุชื่อโครงการ')}</div>
         <div style="font-size:1em;opacity:.85;margin-bottom:1.8em">${escH(job?.job_code || '')}</div>
