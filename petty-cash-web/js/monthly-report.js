@@ -638,34 +638,76 @@ window._mrAddSub = async function (mainId) {
 // ── PDF merge ─────────────────────────────────────────────────
 const A4W = 595.28, A4H = 841.89;
 
-// Modern gradient cover with layered geometric accent bands, a soft glow,
-// and an accent-color pop line — self-contained (fills its parent edge to
-// edge), so the parent card needs no padding/background.
+// Organic "blob" accent shape — soft irregular rounded rectangle, used in
+// the page corners for the light corporate-report background treatment.
+function blobHTML(style) {
+  return `<div style="position:absolute;${style}"></div>`;
+}
+
+// A rotated rounded-square "frame" standing in for a cropped project photo
+// (no real photos available yet) — filled with a diagonal blue gradient to
+// suggest glass/steel without using any third-party image.
+function photoFrameHTML(size, top, left, gradient, rotateDeg) {
+  return `
+    <div style="position:absolute;width:${size}%;aspect-ratio:1/1;top:${top}%;left:${left}%;transform:rotate(${rotateDeg}deg);border-radius:18%;overflow:hidden;box-shadow:0 10px 22px rgba(15,41,66,.22)">
+      <div style="position:absolute;inset:-35%;background:${gradient};transform:rotate(${-rotateDeg}deg)"></div>
+    </div>`;
+}
+
+// Corporate cover in the style of a modern annual-report template: two
+// diamond "photo" frames linked by a thin line-and-dot chain, soft organic
+// color blobs in the corners, italic bold title, numbered footer facts —
+// self-contained (fills its parent edge to edge), no third-party images.
 function coverContentHTML(report) {
   const job = jobsCache.find(j => j.id === report.job_id);
   const initial = escH((report.project_name || job?.job_name || 'P').trim().charAt(0).toUpperCase() || 'P');
+  const year = new Date(report.report_month).getFullYear();
+  const monthName = new Date(report.report_month).toLocaleDateString('en-GB', { month: 'long' });
+  const dot = (top, left, size = 1.1) => `<div style="position:absolute;width:${size}em;height:${size}em;border-radius:50%;background:#2d6a9f;top:${top}%;left:${left}%;transform:translate(-50%,-50%);box-shadow:0 2px 6px rgba(15,41,66,.3)"></div>`;
+  const leaderLine = (top, left, w, deg) => `<div style="position:absolute;width:${w}%;height:1.5px;background:#2d6a9f;top:${top}%;left:${left}%;transform:rotate(${deg}deg);transform-origin:0 0;opacity:.55"></div>`;
   return `
-    <div style="position:absolute;inset:0;background:linear-gradient(150deg,#0f2942 0%,#1a3c5e 45%,#2d6a9f 100%)"></div>
-    <div style="position:absolute;width:70%;height:45%;top:-8%;right:-10%;background:radial-gradient(circle,rgba(140,190,255,.22) 0%,rgba(140,190,255,0) 70%)"></div>
-    <div style="position:absolute;inset:0;overflow:hidden">
-      <div style="position:absolute;width:150%;height:60%;background:rgba(255,255,255,.06);transform:rotate(-11deg);top:-14%;right:-40%"></div>
-      <div style="position:absolute;width:140%;height:30%;background:rgba(255,255,255,.05);transform:rotate(-11deg);top:14%;right:-45%"></div>
-      <div style="position:absolute;width:130%;height:38%;background:rgba(255,255,255,.05);transform:rotate(-11deg);bottom:-14%;left:-30%"></div>
-      <div style="position:absolute;width:130%;height:2.4%;background:rgba(240,185,80,.85);transform:rotate(-11deg);bottom:26.5%;left:-30%"></div>
-      <div style="position:absolute;width:130%;height:13%;background:rgba(255,255,255,.92);transform:rotate(-11deg);bottom:29%;left:-30%"></div>
+    <div style="position:absolute;inset:0;background:#ffffff;overflow:hidden">
+      ${blobHTML('width:46%;height:24%;top:-7%;left:-14%;background:#152a4d;border-radius:38% 62% 63% 37% / 41% 44% 56% 59%;transform:rotate(-8deg)')}
+      ${blobHTML('width:56%;height:22%;top:-10%;left:10%;background:#8fc0e3;border-radius:47% 53% 39% 61% / 56% 60% 40% 44%;transform:rotate(6deg);opacity:.85')}
+      ${blobHTML('width:42%;height:28%;top:26%;left:-18%;background:#2d6a9f;border-radius:56% 44% 42% 58% / 52% 40% 60% 48%;transform:rotate(-6deg);opacity:.92')}
+      ${blobHTML('width:62%;height:24%;bottom:-8%;right:-16%;background:linear-gradient(135deg,#eef5fb,#dcebf6);border-radius:60% 40% 44% 56% / 46% 54% 46% 54%;transform:rotate(-4deg)')}
+      ${leaderLine(16, 4, 30, 27)}
+      ${dot(16, 4, 0.7)}
+      ${leaderLine(30, 30, 22, 32)}
+      ${dot(30, 30, 0.9)}
+      ${dot(55, 46, 0.7)}
+      ${photoFrameHTML(25, 10, 45, 'linear-gradient(135deg,#0f2942 0%,#3f83b8 55%,#bcdcf0 100%)', 45)}
+      ${photoFrameHTML(28, 33, 12, 'linear-gradient(135deg,#12345c 0%,#4a8bc2 55%,#a9d2ec 100%)', 45)}
     </div>
-    <div style="position:relative;height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:9% 10%;box-sizing:border-box;color:#fff">
-      <div style="width:2.7em;height:2.7em;border-radius:50%;background:linear-gradient(135deg,rgba(255,255,255,.22),rgba(255,255,255,.08));border:1.5px solid rgba(255,255,255,.5);box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;font-size:1.2em;font-weight:800;letter-spacing:.5px">${initial}</div>
-      <div>
-        <div style="width:2.4em;height:3px;background:#f0b950;margin-bottom:.9em;border-radius:2px"></div>
-        <div style="font-size:.85em;letter-spacing:3px;opacity:.8;margin-bottom:.7em">MONTHLY PROGRESS REPORT</div>
-        <div style="font-size:2.2em;font-weight:800;line-height:1.3;margin-bottom:.35em">${escH(report.project_name || job?.job_name || 'ยังไม่ระบุชื่อโครงการ')}</div>
-        <div style="font-size:1em;opacity:.85;margin-bottom:1.8em">${escH(job?.job_code || '')}</div>
-        <div style="font-size:1.5em;font-weight:700">${fmtMonth(report.report_month)}</div>
+    <div style="position:relative;height:100%;box-sizing:border-box;color:#1a3c5e">
+      <div style="position:absolute;top:44%;right:8%;display:flex;align-items:center;gap:.5em">
+        <div style="width:2em;height:2em;border-radius:50%;background:#fff;border:1.5px solid #2d6a9f;display:flex;align-items:center;justify-content:center;font-size:.9em;font-weight:800;color:#2d6a9f;box-shadow:0 3px 10px rgba(15,41,66,.15)">${initial}</div>
+        <div style="font-size:.65em;letter-spacing:1.5px;color:#94a3b8;font-style:italic">YOUR REPORT</div>
       </div>
-      <div style="border-top:1px solid rgba(255,255,255,.3);padding-top:1em;font-size:.85em;opacity:.9;line-height:1.9">
-        ${report.companies?.name ? `<div>${escH(report.companies.name)}</div>` : ''}
-        ${report.contract_no ? `<div>Contract No. ${escH(report.contract_no)}</div>` : '<div style="opacity:.6">Contract No. —</div>'}
+      <div style="position:absolute;top:57%;right:8%;left:8%;text-align:right">
+        <div style="font-size:1.5em;font-weight:800;font-style:italic;color:#334155">${year}</div>
+        <div style="font-size:2.15em;font-weight:800;font-style:italic;color:#1a3c5e;line-height:1.05;margin-top:.05em">MONTHLY</div>
+        <div style="font-size:2.15em;font-weight:800;font-style:italic;color:#5a9bcf;line-height:1.05;text-shadow:0 2px 10px rgba(45,106,159,.2)">PROGRESS<br>REPORT</div>
+      </div>
+      <div style="position:absolute;top:81%;right:8%;left:8%;text-align:right;font-size:.8em;color:#64748b;line-height:1.6">
+        รายงานความก้าวหน้าประจำเดือน ${escH(monthName)} ${year}
+      </div>
+      <div style="position:absolute;bottom:5%;left:8%;right:8%;display:flex;justify-content:space-between;gap:1em">
+        <div style="display:flex;align-items:flex-start;gap:.5em;text-align:left;max-width:48%">
+          <div style="width:1.7em;height:1.7em;border-radius:50%;background:#152a4d;color:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:800">01</div>
+          <div>
+            <div style="font-size:.62em;letter-spacing:1px;color:#94a3b8">PROJECT</div>
+            <div style="font-size:.72em;font-weight:700;color:#1a3c5e;line-height:1.4">${escH(report.project_name || job?.job_name || 'ยังไม่ระบุชื่อโครงการ')}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:.5em;text-align:left;max-width:48%">
+          <div style="width:1.7em;height:1.7em;border-radius:50%;background:#152a4d;color:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:800">02</div>
+          <div>
+            <div style="font-size:.62em;letter-spacing:1px;color:#94a3b8">COMPANY</div>
+            <div style="font-size:.72em;font-weight:700;color:#1a3c5e;line-height:1.4">${report.companies?.name ? escH(report.companies.name) : ''}</div>
+            <div style="font-size:.68em;color:#94a3b8">${report.contract_no ? 'Contract No. ' + escH(report.contract_no) : ''}</div>
+          </div>
+        </div>
       </div>
     </div>`;
 }
