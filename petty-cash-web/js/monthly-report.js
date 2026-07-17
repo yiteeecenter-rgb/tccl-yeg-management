@@ -12,6 +12,9 @@ let showInactiveTopics = false;
 let currentReport = null;
 let currentItems   = [];
 
+const pdfPageThumbCache = {}; // file_url -> [dataURL, ...] one flat image per PDF page
+let previewToken = 0;
+
 // ── Helpers ───────────────────────────────────────────────────
 function escH(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -362,7 +365,7 @@ function injectPreviewModal() {
 </div>`);
 }
 
-window._mrPreviewFile = function (topicId) {
+window._mrPreviewFile = async function (topicId) {
   const item = currentItems.find(i => i.topic_id === topicId);
   if (!item?.file_url) return;
   const topic = topics.find(t => t.id === topicId);
@@ -372,10 +375,20 @@ window._mrPreviewFile = function (topicId) {
   const body = document.getElementById('mr-preview-body');
   if ((item.file_type || '').startsWith('image/')) {
     body.innerHTML = `<img src="${escH(item.file_url)}" style="max-width:100%;max-height:75vh;border-radius:8px;object-fit:contain">`;
-  } else {
-    body.innerHTML = `<iframe src="${escH(item.file_url)}#toolbar=0&navpanes=0" style="width:100%;height:75vh;border:none;border-radius:8px;background:#fff"></iframe>`;
+    document.getElementById('modal-mr-preview').classList.add('open');
+    return;
   }
+  body.innerHTML = `<div style="color:#94a3b8;font-size:13px">กำลังโหลดตัวอย่าง...</div>`;
   document.getElementById('modal-mr-preview').classList.add('open');
+  const pages = await renderPdfPagesToImages(item.file_url);
+  if (!pages.length) {
+    body.innerHTML = `<iframe src="${escH(item.file_url)}#toolbar=0&navpanes=0" style="width:100%;height:75vh;border:none;border-radius:8px;background:#fff"></iframe>`;
+    return;
+  }
+  body.innerHTML = pages.map((dataUrl, i) => `
+    <div style="text-align:center;font-size:11px;color:#aaa;margin:${i===0?'0':'12px'} 0 4px">${pages.length > 1 ? `หน้า ${i + 1}/${pages.length}` : ''}</div>
+    <img src="${dataUrl}" style="max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:8px">
+  `).join('');
 };
 
 function renderDetailBody() {
@@ -657,6 +670,34 @@ function buildTocElement() {
   return div;
 }
 
+// ── PDF page rasterization — renders every page of an attached PDF as a
+// flat PNG, so it looks identical to the custom-built cover/TOC page cards
+// instead of an embedded native PDF viewer (which has its own scrollbar/UI).
+const PDFJS_VER = '4.0.379';
+async function renderPdfPagesToImages(url) {
+  if (pdfPageThumbCache[url]) return pdfPageThumbCache[url];
+  try {
+    const pdfjsLib = await import(`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VER}/pdf.min.mjs`);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VER}/pdf.worker.min.mjs`;
+    const doc = await pdfjsLib.getDocument(url).promise;
+    const images = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const viewport = page.getViewport({ scale: 1.4 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      images.push(canvas.toDataURL('image/png'));
+    }
+    pdfPageThumbCache[url] = images;
+    return images;
+  } catch (e) {
+    pdfPageThumbCache[url] = [];
+    return [];
+  }
+}
+
 function pageCardHTML(label, innerHTML) {
   return `
     <div style="text-align:center;font-size:10px;color:#bbb;margin:8px 0">${label}</div>
@@ -666,34 +707,38 @@ function pageCardHTML(label, innerHTML) {
 }
 
 // ── Live preview panel (right side of the report detail modal) ─
-// Every page — cover, TOC, and each attached file — renders as the same
-// flat white "page card" so the whole stack looks like one uniform document.
-// PDFs are shown as a labelled placeholder card (not rendered inline): the
-// real content is embedded correctly when the final PDF is merged, and can
-// be inspected via the "ดูตัวอย่าง" button which opens the actual file.
+// Every page — cover, TOC, and every page of every attached file — renders
+// as the same flat white "page card", stacked in order, so the whole
+// preview reads as one continuous document.
 function renderLivePreview() {
   const el = document.getElementById('mr-live-preview');
   if (!el || !currentReport) return;
+  const token = ++previewToken;
   const leaves = leafTopicsInOrder();
   const done = leaves.filter(t => currentItems.some(i => i.topic_id === t.id && i.file_url)).length;
   const pageMap = computePageNumbers();
 
+  const pendingPdfUrls = [];
   const attachedPages = leaves
     .filter(t => currentItems.some(i => i.topic_id === t.id && i.file_url))
     .map(t => {
       const item = currentItems.find(i => i.topic_id === t.id);
       const isImg = (item.file_type || '').startsWith('image/');
-      const label = `หน้า ${pageMap[t.id]} — ${escH(t.code)} ${escH(t.title)}`;
+      const label = `${escH(t.code)} ${escH(t.title)}`;
       if (isImg) {
-        return pageCardHTML(label, `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`);
+        return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
+          `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`);
       }
-      const pages = item.page_count > 1 ? `${item.page_count} หน้า` : '1 หน้า';
-      return pageCardHTML(label, `
-        <div style="text-align:center;color:#94a3b8">
-          <div style="font-size:2.2em;margin-bottom:.2em">📄</div>
-          <div style="font-size:.8em;color:#64748b;padding:0 12%;word-break:break-word">${escH(item.file_name || 'PDF')}</div>
-          <div style="font-size:.72em;color:#cbd5e1;margin-top:.3em">${pages}</div>
-        </div>`);
+      const cached = pdfPageThumbCache[item.file_url];
+      if (cached === undefined) pendingPdfUrls.push(item.file_url);
+      if (!cached || !cached.length) {
+        return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
+          `<span style="color:#94a3b8;font-size:12px">${cached ? 'ไม่สามารถแสดงตัวอย่างได้' : 'กำลังโหลดตัวอย่าง...'}</span>`);
+      }
+      return cached.map((dataUrl, i) => pageCardHTML(
+        `หน้า ${pageMap[t.id] + i} — ${label}${cached.length > 1 ? ` (${i + 1}/${cached.length})` : ''}`,
+        `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:contain;background:#fff">`
+      )).join('');
     }).join('');
 
   el.innerHTML = `
@@ -707,6 +752,12 @@ function renderLivePreview() {
       ${tocContentHTML()}
     </div>
     ${attachedPages}`;
+
+  if (pendingPdfUrls.length) {
+    Promise.all(pendingPdfUrls.map(u => renderPdfPagesToImages(u))).then(() => {
+      if (token === previewToken) renderLivePreview();
+    });
+  }
 }
 
 async function addImagePageFromDataUrl(pdfDoc, dataUrl) {
