@@ -45,6 +45,24 @@ function leafTopicsInOrder() {
   });
   return result;
 }
+
+// full document flow in order: a 'section' entry (with its own cover page)
+// precedes the 'leaf' entries under it; main topics with no sub-items are
+// leaves themselves and get no separate section cover.
+function documentFlowInOrder() {
+  const flow = [];
+  activeMains().forEach(m => {
+    const subs = activeSubsOf(m.id);
+    if (subs.length === 0) {
+      flow.push({ kind: 'leaf', topic: m });
+    } else {
+      flow.push({ kind: 'section', topic: m });
+      subs.forEach(s => flow.push({ kind: 'leaf', topic: s }));
+    }
+  });
+  return flow;
+}
+
 function progressOf(reportId) {
   const leaves = leafTopicsInOrder();
   const items = itemsByReport[reportId] || [];
@@ -64,17 +82,24 @@ async function computePageCount(file) {
   return 1;
 }
 
-// page 1 = cover, page 2 = table of contents, content starts at page 3
+// page 1 = cover, page 2 = table of contents, content starts at page 3.
+// Each section (main topic with sub-items) gets its own 1-page section
+// cover; its TOC row points at that cover page.
 function computePageNumbers() {
   const map = {};
   let page = 3;
-  leafTopicsInOrder().forEach(t => {
-    const item = currentItems.find(i => i.topic_id === t.id && i.file_url);
+  documentFlowInOrder().forEach(entry => {
+    if (entry.kind === 'section') {
+      map[entry.topic.id] = page;
+      page += 1;
+      return;
+    }
+    const item = currentItems.find(i => i.topic_id === entry.topic.id && i.file_url);
     if (item) {
-      map[t.id] = page;
+      map[entry.topic.id] = page;
       page += item.page_count || 1;
     } else {
-      map[t.id] = null;
+      map[entry.topic.id] = null;
     }
   });
   return map;
@@ -628,12 +653,19 @@ function coverContentHTML(report) {
     </div>`;
 }
 
+function sectionCoverContentHTML(topic) {
+  return `
+    <div style="text-align:center;margin-top:40%">
+      <div style="font-size:.85em;letter-spacing:3px;color:#999;margin-bottom:1.4em">SECTION ${escH(topic.code)}</div>
+      <div style="font-size:1.9em;font-weight:800;line-height:1.4">${escH(topic.title)}</div>
+    </div>`;
+}
+
 function tocContentHTML() {
   const pageMap = computePageNumbers();
   const pageLabel = (id) => pageMap[id] != null ? pageMap[id] : '—';
   const rows = activeMains().map(m => {
     const subs = activeSubsOf(m.id);
-    const isLeafMain = subs.length === 0;
     const subRows = subs.map(s => `
       <div style="display:flex;align-items:center;padding:.3em 0 .3em 2.4em;font-size:.93em">
         <div style="width:3.5em">${escH(s.code)}</div>
@@ -644,7 +676,7 @@ function tocContentHTML() {
       <div style="display:flex;align-items:center;padding:.55em 0 .3em;font-size:1em;font-weight:700">
         <div style="width:3.5em">${escH(m.code)}</div>
         <div style="flex:1">${escH(m.title)}</div>
-        <div style="width:2.4em;text-align:right;color:#666">${isLeafMain ? pageLabel(m.id) : ''}</div>
+        <div style="width:2.4em;text-align:right;color:#666">${pageLabel(m.id)}</div>
       </div>
       ${subRows}`;
   }).join('');
@@ -667,6 +699,13 @@ function buildTocElement() {
   const div = document.createElement('div');
   div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;min-height:1123px;background:#fff;padding:60px;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:16px;';
   div.innerHTML = tocContentHTML();
+  return div;
+}
+
+function buildSectionCoverElement(topic) {
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;background:#fff;padding:80px 60px;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:16px;';
+  div.innerHTML = sectionCoverContentHTML(topic);
   return div;
 }
 
@@ -719,27 +758,34 @@ function renderLivePreview() {
   const pageMap = computePageNumbers();
 
   const pendingPdfUrls = [];
-  const attachedPages = leaves
-    .filter(t => currentItems.some(i => i.topic_id === t.id && i.file_url))
-    .map(t => {
-      const item = currentItems.find(i => i.topic_id === t.id);
-      const isImg = (item.file_type || '').startsWith('image/');
-      const label = `${escH(t.code)} ${escH(t.title)}`;
-      if (isImg) {
-        return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
-          `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`);
-      }
-      const cached = pdfPageThumbCache[item.file_url];
-      if (cached === undefined) pendingPdfUrls.push(item.file_url);
-      if (!cached || !cached.length) {
-        return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
-          `<span style="color:#94a3b8;font-size:12px">${cached ? 'ไม่สามารถแสดงตัวอย่างได้' : 'กำลังโหลดตัวอย่าง...'}</span>`);
-      }
-      return cached.map((dataUrl, i) => pageCardHTML(
-        `หน้า ${pageMap[t.id] + i} — ${label}${cached.length > 1 ? ` (${i + 1}/${cached.length})` : ''}`,
-        `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:contain;background:#fff">`
-      )).join('');
-    }).join('');
+  const attachedPages = documentFlowInOrder().map(entry => {
+    const t = entry.topic;
+    if (entry.kind === 'section') {
+      return pageCardHTML(`หน้า ${pageMap[t.id]} — เริ่มหมวด ${escH(t.code)}`, `
+        <div style="text-align:center;padding:0 10%">
+          <div style="font-size:.7em;letter-spacing:2px;color:#bbb;margin-bottom:1em">SECTION ${escH(t.code)}</div>
+          <div style="font-size:1.3em;font-weight:800;color:#1a3c5e;line-height:1.4">${escH(t.title)}</div>
+        </div>`);
+    }
+    const item = currentItems.find(i => i.topic_id === t.id && i.file_url);
+    if (!item) return '';
+    const isImg = (item.file_type || '').startsWith('image/');
+    const label = `${escH(t.code)} ${escH(t.title)}`;
+    if (isImg) {
+      return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
+        `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`);
+    }
+    const cached = pdfPageThumbCache[item.file_url];
+    if (cached === undefined) pendingPdfUrls.push(item.file_url);
+    if (!cached || !cached.length) {
+      return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
+        `<span style="color:#94a3b8;font-size:12px">${cached ? 'ไม่สามารถแสดงตัวอย่างได้' : 'กำลังโหลดตัวอย่าง...'}</span>`);
+    }
+    return cached.map((dataUrl, i) => pageCardHTML(
+      `หน้า ${pageMap[t.id] + i} — ${label}${cached.length > 1 ? ` (${i + 1}/${cached.length})` : ''}`,
+      `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:contain;background:#fff">`
+    )).join('');
+  }).join('');
 
   el.innerHTML = `
     <div style="text-align:center;font-size:10px;color:#bbb;margin-bottom:8px">หน้า 1 — ปก</div>
@@ -807,13 +853,23 @@ window._mrMerge = async function () {
     document.body.removeChild(tocEl);
     await addImagePageFromDataUrl(pdfDoc, tocCanvas.toDataURL('image/png'));
 
-    const leaves = leafTopicsInOrder();
+    const flow = documentFlowInOrder();
     let n = 0;
-    for (const topic of leaves) {
+    for (const entry of flow) {
       n++;
+      const topic = entry.topic;
+      if (entry.kind === 'section') {
+        setStatus(`กำลังสร้างหน้าแบ่งหมวด (${n}/${flow.length}) — ${topic.title}...`);
+        const sectionEl = buildSectionCoverElement(topic);
+        document.body.appendChild(sectionEl);
+        const sectionCanvas = await html2canvas(sectionEl, { scale: 2, backgroundColor: '#ffffff' });
+        document.body.removeChild(sectionEl);
+        await addImagePageFromDataUrl(pdfDoc, sectionCanvas.toDataURL('image/png'));
+        continue;
+      }
       const item = currentItems.find(i => i.topic_id === topic.id);
       if (!item?.file_url) continue;
-      setStatus(`กำลังรวมไฟล์ (${n}/${leaves.length}) — ${topic.title}...`);
+      setStatus(`กำลังรวมไฟล์ (${n}/${flow.length}) — ${topic.title}...`);
       const bytes = await fetch(item.file_url).then(r => r.arrayBuffer());
       if (item.file_type === 'application/pdf') {
         const src = await PDFDocument.load(bytes);
