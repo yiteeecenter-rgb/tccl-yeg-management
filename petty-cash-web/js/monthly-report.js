@@ -373,7 +373,7 @@ window._mrPreviewFile = function (topicId) {
   if ((item.file_type || '').startsWith('image/')) {
     body.innerHTML = `<img src="${escH(item.file_url)}" style="max-width:100%;max-height:75vh;border-radius:8px;object-fit:contain">`;
   } else {
-    body.innerHTML = `<iframe src="${escH(item.file_url)}" style="width:100%;height:75vh;border:none;border-radius:8px;background:#fff"></iframe>`;
+    body.innerHTML = `<iframe src="${escH(item.file_url)}#toolbar=0&navpanes=0" style="width:100%;height:75vh;border:none;border-radius:8px;background:#fff"></iframe>`;
   }
   document.getElementById('modal-mr-preview').classList.add('open');
 };
@@ -675,7 +675,7 @@ function renderLivePreview() {
       <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;overflow:hidden;margin-bottom:4px">
         ${isImg
           ? `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`
-          : `<iframe src="${escH(item.file_url)}" style="width:100%;height:100%;border:none"></iframe>`}
+          : `<iframe src="${escH(item.file_url)}#toolbar=0&navpanes=0&view=FitH" style="width:100%;height:100%;border:none;pointer-events:none"></iframe>`}
       </div>`;
     }).join('');
 
