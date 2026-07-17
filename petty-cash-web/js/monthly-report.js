@@ -437,6 +437,7 @@ window._mrItemFileChange = async function (topicId, input) {
     currentItems = currentItems.filter(i => i.topic_id !== topicId).concat(data);
     itemsByReport[currentReport.id] = currentItems;
     renderDetailBody();
+    renderLivePreview();
     toast('แนบไฟล์แล้ว');
   } catch (e) { toast('เกิดข้อผิดพลาด: ' + e.message); }
 };
@@ -452,6 +453,7 @@ window._mrItemRemove = async function (topicId) {
     currentItems = currentItems.filter(i => i.topic_id !== topicId);
     itemsByReport[currentReport.id] = currentItems;
     renderDetailBody();
+    renderLivePreview();
     toast('ลบไฟล์แล้ว');
   } catch (e) { toast('เกิดข้อผิดพลาด: ' + e.message); }
 };
@@ -582,25 +584,34 @@ function coverContentHTML(report) {
     </div>`;
 }
 
-function tocContentHTML() {
+function tocContentHTML(withStatus) {
+  const hasFile = (topicId) => currentItems.some(i => i.topic_id === topicId && i.file_url);
+  const statusMark = (topicId) => withStatus
+    ? (hasFile(topicId)
+        ? `<span style="color:#16a34a;font-weight:700">✓</span>`
+        : `<span style="color:#cbd5e1">○</span>`)
+    : '';
   const rows = activeMains().map(m => {
     const subs = activeSubsOf(m.id);
+    const isLeafMain = subs.length === 0;
     const subRows = subs.map(s => `
-      <div style="display:flex;padding:.3em 0 .3em 2.4em;font-size:.93em">
+      <div style="display:flex;align-items:center;padding:.3em 0 .3em 2.4em;font-size:.93em">
         <div style="width:3.5em">${escH(s.code)}</div>
         <div style="flex:1">${escH(s.title)}</div>
+        ${withStatus ? `<div style="width:1.5em;text-align:center">${statusMark(s.id)}</div>` : ''}
       </div>`).join('');
     return `
-      <div style="display:flex;padding:.55em 0 .3em;font-size:1em;font-weight:700">
+      <div style="display:flex;align-items:center;padding:.55em 0 .3em;font-size:1em;font-weight:700">
         <div style="width:3.5em">${escH(m.code)}</div>
         <div style="flex:1">${escH(m.title)}</div>
+        ${withStatus && isLeafMain ? `<div style="width:1.5em;text-align:center">${statusMark(m.id)}</div>` : ''}
       </div>
       ${subRows}`;
   }).join('');
   return `
     <div style="text-align:center;font-size:1.4em;font-weight:800;margin-bottom:1.6em">TABLE OF CONTENTS</div>
     <div style="display:flex;font-size:.93em;font-weight:700;color:#888;border-bottom:1px solid #ddd;padding-bottom:.4em;margin-bottom:.4em">
-      <div style="width:3.5em">Item</div><div style="flex:1">Description</div>
+      <div style="width:3.5em">Item</div><div style="flex:1">Description</div>${withStatus ? '<div style="width:1.5em"></div>' : ''}
     </div>
     ${rows || '<div style="color:#bbb;text-align:center;padding:20px">ยังไม่มีหัวข้อ</div>'}`;
 }
@@ -623,12 +634,15 @@ function buildTocElement() {
 function renderLivePreview() {
   const el = document.getElementById('mr-live-preview');
   if (!el || !currentReport) return;
+  const leaves = leafTopicsInOrder();
+  const done = leaves.filter(t => currentItems.some(i => i.topic_id === t.id && i.file_url)).length;
   el.innerHTML = `
-    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;padding:9%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:13px;overflow:hidden;margin-bottom:16px">
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;padding:9%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:13px;overflow:hidden;margin-bottom:8px">
       ${coverContentHTML(currentReport)}
     </div>
+    <div style="text-align:center;font-size:11px;color:#888;margin-bottom:8px">แนบไฟล์แล้ว ${done}/${leaves.length} หัวข้อ — ✓ = แนบแล้ว, ○ = ยังไม่แนบ</div>
     <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;min-height:calc(100% * 297 / 210);padding:9% 7%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:12px">
-      ${tocContentHTML()}
+      ${tocContentHTML(true)}
     </div>`;
 }
 
