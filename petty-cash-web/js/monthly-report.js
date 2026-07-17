@@ -250,23 +250,29 @@ function injectDetailModal() {
   if (document.getElementById('modal-mr-detail')) return;
   document.body.insertAdjacentHTML('beforeend', `
 <div class="modal-overlay" id="modal-mr-detail">
-  <div class="modal-box" id="modal-mr-detail-box" style="max-width:820px;width:92vw;display:flex;flex-direction:column;max-height:92vh">
+  <div class="modal-box" id="modal-mr-detail-box" style="max-width:1180px;width:95vw;display:flex;flex-direction:column;max-height:92vh">
     <div class="modal-head">
       <h3 id="mr-detail-title">รายงานประจำเดือน</h3>
       <button class="modal-close" onclick="window._mrCloseDetail()">✕</button>
     </div>
-    <div class="modal-body" style="overflow-y:auto;flex:1">
-      <div class="form-row" style="margin-bottom:18px">
-        <div class="form-group">
-          <label>ชื่อโครงการ</label>
-          <input class="form-control" id="mr-project-name" onblur="window._mrSaveMeta()">
+    <div style="display:flex;gap:0;flex:1;min-height:0;overflow:hidden">
+      <div class="modal-body" style="flex:0 0 480px;width:480px;overflow-y:auto">
+        <div class="form-row" style="margin-bottom:18px">
+          <div class="form-group">
+            <label>ชื่อโครงการ</label>
+            <input class="form-control" id="mr-project-name" oninput="window._mrLiveInput()" onblur="window._mrSaveMeta()">
+          </div>
+          <div class="form-group">
+            <label>เลขที่สัญญา (Contract No.)</label>
+            <input class="form-control" id="mr-contract-no" oninput="window._mrLiveInput()" onblur="window._mrSaveMeta()">
+          </div>
         </div>
-        <div class="form-group">
-          <label>เลขที่สัญญา (Contract No.)</label>
-          <input class="form-control" id="mr-contract-no" onblur="window._mrSaveMeta()">
-        </div>
+        <div id="mr-topics-list"></div>
       </div>
-      <div id="mr-topics-list"></div>
+      <div style="flex:1;min-width:0;border-left:1px solid #e2e8f0;overflow-y:auto;background:#f7f9fc;padding:20px">
+        <div style="font-size:12px;color:#888;margin-bottom:10px">— ตัวอย่างเอกสาร (อัปเดตอัตโนมัติ) — หน้าปก + สารบัญ</div>
+        <div id="mr-live-preview" style="max-width:420px;margin:0 auto"></div>
+      </div>
     </div>
     <div class="modal-foot" style="justify-content:space-between">
       <div id="mr-merge-status" style="font-size:12px;color:#888"></div>
@@ -278,6 +284,13 @@ function injectDetailModal() {
   </div>
 </div>`);
 }
+
+window._mrLiveInput = function () {
+  if (!currentReport) return;
+  currentReport.project_name = document.getElementById('mr-project-name').value;
+  currentReport.contract_no  = document.getElementById('mr-contract-no').value;
+  renderLivePreview();
+};
 
 function leafRowHTML(topic) {
   const item = currentItems.find(i => i.topic_id === topic.id);
@@ -382,6 +395,7 @@ window._mrOpenReport = async function (reportId) {
   document.getElementById('mr-project-name').value = currentReport.project_name || '';
   document.getElementById('mr-contract-no').value  = currentReport.contract_no || '';
   renderDetailBody();
+  renderLivePreview();
   document.getElementById('modal-mr-detail').classList.add('open');
 };
 window._mrCloseDetail = function () {
@@ -553,48 +567,69 @@ window._mrAddSub = async function (mainId) {
 // ── PDF merge ─────────────────────────────────────────────────
 const A4W = 595.28, A4H = 841.89;
 
-function buildCoverElement(report) {
+function coverContentHTML(report) {
   const job = jobsCache.find(j => j.id === report.job_id);
-  const div = document.createElement('div');
-  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;background:#fff;padding:80px 60px;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;';
-  div.innerHTML = `
-    <div style="text-align:center;margin-top:160px">
-      <div style="font-size:14px;letter-spacing:3px;color:#666;margin-bottom:28px">MONTHLY PROGRESS REPORT</div>
-      <div style="font-size:28px;font-weight:800;margin-bottom:10px;line-height:1.4">${escH(report.project_name || job?.job_name || '-')}</div>
-      <div style="font-size:15px;color:#555;margin-bottom:44px">${escH(job?.job_code || '')}</div>
-      <div style="font-size:18px;font-weight:700;margin-bottom:70px">${fmtMonth(report.report_month)}</div>
-      <div style="font-size:13px;color:#666;line-height:2">
+  return `
+    <div style="text-align:center;margin-top:18%">
+      <div style="font-size:.9em;letter-spacing:3px;color:#666;margin-bottom:1.8em">MONTHLY PROGRESS REPORT</div>
+      <div style="font-size:2em;font-weight:800;margin-bottom:.6em;line-height:1.4">${escH(report.project_name || job?.job_name || 'ยังไม่ระบุชื่อโครงการ')}</div>
+      <div style="font-size:1.05em;color:#555;margin-bottom:2.8em">${escH(job?.job_code || '')}</div>
+      <div style="font-size:1.3em;font-weight:700;margin-bottom:4.2em">${fmtMonth(report.report_month)}</div>
+      <div style="font-size:.9em;color:#666;line-height:2">
         ${report.companies?.name ? `<div>${escH(report.companies.name)}</div>` : ''}
-        ${report.contract_no ? `<div>Contract No. ${escH(report.contract_no)}</div>` : ''}
+        ${report.contract_no ? `<div>Contract No. ${escH(report.contract_no)}</div>` : '<div style="color:#bbb">Contract No. —</div>'}
       </div>
     </div>`;
-  return div;
 }
 
-function buildTocElement() {
+function tocContentHTML() {
   const rows = activeMains().map(m => {
     const subs = activeSubsOf(m.id);
     const subRows = subs.map(s => `
-      <div style="display:flex;padding:4px 0 4px 34px;font-size:13px">
-        <div style="width:50px">${escH(s.code)}</div>
+      <div style="display:flex;padding:.3em 0 .3em 2.4em;font-size:.93em">
+        <div style="width:3.5em">${escH(s.code)}</div>
         <div style="flex:1">${escH(s.title)}</div>
       </div>`).join('');
     return `
-      <div style="display:flex;padding:8px 0 4px;font-size:14px;font-weight:700">
-        <div style="width:50px">${escH(m.code)}</div>
+      <div style="display:flex;padding:.55em 0 .3em;font-size:1em;font-weight:700">
+        <div style="width:3.5em">${escH(m.code)}</div>
         <div style="flex:1">${escH(m.title)}</div>
       </div>
       ${subRows}`;
   }).join('');
-  const div = document.createElement('div');
-  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;min-height:1123px;background:#fff;padding:60px;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;';
-  div.innerHTML = `
-    <div style="text-align:center;font-size:20px;font-weight:800;margin-bottom:32px">TABLE OF CONTENTS</div>
-    <div style="display:flex;font-size:13px;font-weight:700;color:#888;border-bottom:1px solid #ddd;padding-bottom:6px;margin-bottom:6px">
-      <div style="width:50px">Item</div><div style="flex:1">Description</div>
+  return `
+    <div style="text-align:center;font-size:1.4em;font-weight:800;margin-bottom:1.6em">TABLE OF CONTENTS</div>
+    <div style="display:flex;font-size:.93em;font-weight:700;color:#888;border-bottom:1px solid #ddd;padding-bottom:.4em;margin-bottom:.4em">
+      <div style="width:3.5em">Item</div><div style="flex:1">Description</div>
     </div>
-    ${rows}`;
+    ${rows || '<div style="color:#bbb;text-align:center;padding:20px">ยังไม่มีหัวข้อ</div>'}`;
+}
+
+function buildCoverElement(report) {
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;background:#fff;padding:80px 60px;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:16px;';
+  div.innerHTML = coverContentHTML(report);
   return div;
+}
+
+function buildTocElement() {
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;min-height:1123px;background:#fff;padding:60px;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:16px;';
+  div.innerHTML = tocContentHTML();
+  return div;
+}
+
+// ── Live preview panel (right side of the report detail modal) ─
+function renderLivePreview() {
+  const el = document.getElementById('mr-live-preview');
+  if (!el || !currentReport) return;
+  el.innerHTML = `
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;padding:9%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:13px;overflow:hidden;margin-bottom:16px">
+      ${coverContentHTML(currentReport)}
+    </div>
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;min-height:calc(100% * 297 / 210);padding:9% 7%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:12px">
+      ${tocContentHTML()}
+    </div>`;
 }
 
 async function addImagePageFromDataUrl(pdfDoc, dataUrl) {
