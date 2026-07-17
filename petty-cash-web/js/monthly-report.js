@@ -143,7 +143,10 @@ async function uploadItemFile(reportId, topicId, file) {
   const { error } = await sb.storage.from(BUCKET).upload(path, file, { upsert: true });
   if (error) throw new Error('อัพโหลดไฟล์ล้มเหลว: ' + error.message);
   const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  // cache-bust: re-uploading to the same topic reuses this exact path, so
+  // without a unique query string, both our in-memory render cache and the
+  // browser's own HTTP cache would keep serving the old file's content
+  return data.publicUrl + '?v=' + Date.now();
 }
 
 // ── Init ──────────────────────────────────────────────────────
