@@ -49,6 +49,34 @@ function progressOf(reportId) {
   return { done, total: leaves.length };
 }
 
+async function computePageCount(file) {
+  if (file.type === 'application/pdf') {
+    try {
+      const { PDFDocument } = await import('https://esm.sh/pdf-lib@1.17.1');
+      const bytes = await file.arrayBuffer();
+      const doc = await PDFDocument.load(bytes);
+      return doc.getPageCount();
+    } catch (e) { return 1; }
+  }
+  return 1;
+}
+
+// page 1 = cover, page 2 = table of contents, content starts at page 3
+function computePageNumbers() {
+  const map = {};
+  let page = 3;
+  leafTopicsInOrder().forEach(t => {
+    const item = currentItems.find(i => i.topic_id === t.id && i.file_url);
+    if (item) {
+      map[t.id] = page;
+      page += item.page_count || 1;
+    } else {
+      map[t.id] = null;
+    }
+  });
+  return map;
+}
+
 // ── Supabase CRUD ─────────────────────────────────────────────
 async function listTopics() {
   const { data, error } = await sb.from('monthly_report_topics').select('*').order('sort_order');
@@ -424,10 +452,13 @@ window._mrItemFileChange = async function (topicId, input) {
   if (!file || !currentReport) return;
   try {
     toast('กำลังอัพโหลดไฟล์...', 1500);
-    const url = await uploadItemFile(currentReport.id, topicId, file);
+    const [url, page_count] = await Promise.all([
+      uploadItemFile(currentReport.id, topicId, file),
+      computePageCount(file),
+    ]);
     const payload = {
       report_id: currentReport.id, topic_id: topicId,
-      file_url: url, file_name: file.name, file_type: file.type,
+      file_url: url, file_name: file.name, file_type: file.type, page_count,
       uploaded_by: window._mrCurrentUserId,
     };
     const { data, error } = await sb.from('monthly_report_items')
@@ -584,13 +615,9 @@ function coverContentHTML(report) {
     </div>`;
 }
 
-function tocContentHTML(withStatus) {
-  const hasFile = (topicId) => currentItems.some(i => i.topic_id === topicId && i.file_url);
-  const statusMark = (topicId) => withStatus
-    ? (hasFile(topicId)
-        ? `<span style="color:#16a34a;font-weight:700">✓</span>`
-        : `<span style="color:#cbd5e1">○</span>`)
-    : '';
+function tocContentHTML() {
+  const pageMap = computePageNumbers();
+  const pageLabel = (id) => pageMap[id] != null ? pageMap[id] : '—';
   const rows = activeMains().map(m => {
     const subs = activeSubsOf(m.id);
     const isLeafMain = subs.length === 0;
@@ -598,20 +625,20 @@ function tocContentHTML(withStatus) {
       <div style="display:flex;align-items:center;padding:.3em 0 .3em 2.4em;font-size:.93em">
         <div style="width:3.5em">${escH(s.code)}</div>
         <div style="flex:1">${escH(s.title)}</div>
-        ${withStatus ? `<div style="width:1.5em;text-align:center">${statusMark(s.id)}</div>` : ''}
+        <div style="width:2.4em;text-align:right;color:#666">${pageLabel(s.id)}</div>
       </div>`).join('');
     return `
       <div style="display:flex;align-items:center;padding:.55em 0 .3em;font-size:1em;font-weight:700">
         <div style="width:3.5em">${escH(m.code)}</div>
         <div style="flex:1">${escH(m.title)}</div>
-        ${withStatus && isLeafMain ? `<div style="width:1.5em;text-align:center">${statusMark(m.id)}</div>` : ''}
+        <div style="width:2.4em;text-align:right;color:#666">${isLeafMain ? pageLabel(m.id) : ''}</div>
       </div>
       ${subRows}`;
   }).join('');
   return `
     <div style="text-align:center;font-size:1.4em;font-weight:800;margin-bottom:1.6em">TABLE OF CONTENTS</div>
     <div style="display:flex;font-size:.93em;font-weight:700;color:#888;border-bottom:1px solid #ddd;padding-bottom:.4em;margin-bottom:.4em">
-      <div style="width:3.5em">Item</div><div style="flex:1">Description</div>${withStatus ? '<div style="width:1.5em"></div>' : ''}
+      <div style="width:3.5em">Item</div><div style="flex:1">Description</div><div style="width:2.4em;text-align:right">Page</div>
     </div>
     ${rows || '<div style="color:#bbb;text-align:center;padding:20px">ยังไม่มีหัวข้อ</div>'}`;
 }
@@ -636,14 +663,33 @@ function renderLivePreview() {
   if (!el || !currentReport) return;
   const leaves = leafTopicsInOrder();
   const done = leaves.filter(t => currentItems.some(i => i.topic_id === t.id && i.file_url)).length;
+  const pageMap = computePageNumbers();
+
+  const attachedPages = leaves
+    .filter(t => currentItems.some(i => i.topic_id === t.id && i.file_url))
+    .map(t => {
+      const item = currentItems.find(i => i.topic_id === t.id);
+      const isImg = (item.file_type || '').startsWith('image/');
+      return `
+      <div style="text-align:center;font-size:10px;color:#bbb;margin:8px 0">หน้า ${pageMap[t.id]} — ${escH(t.code)} ${escH(t.title)}</div>
+      <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;overflow:hidden;margin-bottom:4px">
+        ${isImg
+          ? `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`
+          : `<iframe src="${escH(item.file_url)}" style="width:100%;height:100%;border:none"></iframe>`}
+      </div>`;
+    }).join('');
+
   el.innerHTML = `
+    <div style="text-align:center;font-size:10px;color:#bbb;margin-bottom:8px">หน้า 1 — ปก</div>
     <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;padding:9%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:13px;overflow:hidden;margin-bottom:8px">
       ${coverContentHTML(currentReport)}
     </div>
-    <div style="text-align:center;font-size:11px;color:#888;margin-bottom:8px">แนบไฟล์แล้ว ${done}/${leaves.length} หัวข้อ — ✓ = แนบแล้ว, ○ = ยังไม่แนบ</div>
-    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;min-height:calc(100% * 297 / 210);padding:9% 7%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:12px">
-      ${tocContentHTML(true)}
-    </div>`;
+    <div style="text-align:center;font-size:11px;color:#888;margin-bottom:8px">แนบไฟล์แล้ว ${done}/${leaves.length} หัวข้อ</div>
+    <div style="text-align:center;font-size:10px;color:#bbb;margin-bottom:8px">หน้า 2 — สารบัญ</div>
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;min-height:calc(100% * 297 / 210);padding:9% 7%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:12px;margin-bottom:8px">
+      ${tocContentHTML()}
+    </div>
+    ${attachedPages}`;
 }
 
 async function addImagePageFromDataUrl(pdfDoc, dataUrl) {
