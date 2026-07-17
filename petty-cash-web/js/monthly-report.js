@@ -12,8 +12,19 @@ let showInactiveTopics = false;
 let currentReport = null;
 let currentItems   = [];
 
-const pdfPageThumbCache = {}; // file_url -> [dataURL, ...] one flat image per PDF page
+const pdfPageThumbCache = {}; // file_url -> [{url, landscape}, ...] one flat image per PDF page
+const imageOrientationCache = {}; // file_url -> boolean (true = landscape)
 let previewToken = 0;
+
+function probeImageOrientation(url) {
+  if (imageOrientationCache[url] !== undefined) return Promise.resolve(imageOrientationCache[url]);
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => { const l = img.naturalWidth > img.naturalHeight; imageOrientationCache[url] = l; resolve(l); };
+    img.onerror = () => { imageOrientationCache[url] = false; resolve(false); };
+    img.src = url;
+  });
+}
 
 // ── Helpers ───────────────────────────────────────────────────
 function escH(s) {
@@ -410,9 +421,9 @@ window._mrPreviewFile = async function (topicId) {
     body.innerHTML = `<iframe src="${escH(item.file_url)}#toolbar=0&navpanes=0" style="width:100%;height:75vh;border:none;border-radius:8px;background:#fff"></iframe>`;
     return;
   }
-  body.innerHTML = pages.map((dataUrl, i) => `
+  body.innerHTML = pages.map((p, i) => `
     <div style="text-align:center;font-size:11px;color:#aaa;margin:${i===0?'0':'12px'} 0 4px">${pages.length > 1 ? `หน้า ${i + 1}/${pages.length}` : ''}</div>
-    <img src="${dataUrl}" style="max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:8px">
+    <img src="${p.url}" style="max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:8px">
   `).join('');
 };
 
@@ -793,7 +804,7 @@ async function renderPdfPagesToImages(url) {
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-      images.push(canvas.toDataURL('image/png'));
+      images.push({ url: canvas.toDataURL('image/png'), landscape: viewport.width > viewport.height });
     }
     pdfPageThumbCache[url] = images;
     return images;
@@ -803,10 +814,10 @@ async function renderPdfPagesToImages(url) {
   }
 }
 
-function pageCardHTML(label, innerHTML) {
+function pageCardHTML(label, innerHTML, landscape) {
   return `
     <div style="text-align:center;font-size:10px;color:#bbb;margin:8px 0">${label}</div>
-    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;overflow:hidden;margin-bottom:4px;display:flex;align-items:center;justify-content:center">
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:${landscape ? '297/210' : '210/297'};overflow:hidden;margin-bottom:4px;display:flex;align-items:center;justify-content:center">
       ${innerHTML}
     </div>`;
 }
@@ -834,6 +845,7 @@ function renderLivePreview() {
   const pageMap = computePageNumbers();
 
   const pendingPdfUrls = [];
+  const pendingImageUrls = [];
   const attachedPages = documentFlowInOrder().map(entry => {
     const t = entry.topic;
     if (entry.kind === 'section') {
@@ -844,8 +856,10 @@ function renderLivePreview() {
     const isImg = (item.file_type || '').startsWith('image/');
     const label = `${escH(t.code)} ${escH(t.title)}`;
     if (isImg) {
+      const landscape = imageOrientationCache[item.file_url];
+      if (landscape === undefined) pendingImageUrls.push(item.file_url);
       return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
-        `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`);
+        `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`, !!landscape);
     }
     const cached = pdfPageThumbCache[item.file_url];
     if (cached === undefined) pendingPdfUrls.push(item.file_url);
@@ -853,9 +867,9 @@ function renderLivePreview() {
       return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
         `<span style="color:#94a3b8;font-size:12px">${cached ? 'ไม่สามารถแสดงตัวอย่างได้' : 'กำลังโหลดตัวอย่าง...'}</span>`);
     }
-    return cached.map((dataUrl, i) => pageCardHTML(
+    return cached.map((p, i) => pageCardHTML(
       `หน้า ${pageMap[t.id] + i} — ${label}${cached.length > 1 ? ` (${i + 1}/${cached.length})` : ''}`,
-      `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:contain;background:#fff">`
+      `<img src="${p.url}" style="width:100%;height:100%;object-fit:contain;background:#fff">`, p.landscape
     )).join('');
   }).join('');
 
@@ -868,8 +882,12 @@ function renderLivePreview() {
     </div>
     ${attachedPages}`;
 
-  if (pendingPdfUrls.length) {
-    Promise.all(pendingPdfUrls.map(u => renderPdfPagesToImages(u))).then(() => {
+  const pending = [
+    ...pendingPdfUrls.map(u => renderPdfPagesToImages(u)),
+    ...pendingImageUrls.map(u => probeImageOrientation(u)),
+  ];
+  if (pending.length) {
+    Promise.all(pending).then(() => {
       if (token === previewToken) renderLivePreview();
     });
   }
@@ -886,11 +904,16 @@ async function addImagePageFromDataUrl(pdfDoc, dataUrl) {
 
 async function addImagePageFromFile(pdfDoc, bytes, mimeType) {
   const img = /jpe?g/i.test(mimeType) ? await pdfDoc.embedJpg(bytes) : await pdfDoc.embedPng(bytes);
+  // landscape source images get a landscape A4 page instead of being
+  // squeezed into a portrait one, matching the live preview's sizing
+  const landscape = img.width > img.height;
+  const pageW = landscape ? A4H : A4W;
+  const pageH = landscape ? A4W : A4H;
   const pad = 30;
-  const scale = Math.min((A4W - pad*2) / img.width, (A4H - pad*2) / img.height);
+  const scale = Math.min((pageW - pad*2) / img.width, (pageH - pad*2) / img.height);
   const w = img.width * scale, h = img.height * scale;
-  const page = pdfDoc.addPage([A4W, A4H]);
-  page.drawImage(img, { x: (A4W - w) / 2, y: (A4H - h) / 2, width: w, height: h });
+  const page = pdfDoc.addPage([pageW, pageH]);
+  page.drawImage(img, { x: (pageW - w) / 2, y: (pageH - h) / 2, width: w, height: h });
 }
 
 window._mrMerge = async function () {
