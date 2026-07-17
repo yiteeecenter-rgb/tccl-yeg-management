@@ -638,26 +638,45 @@ window._mrAddSub = async function (mainId) {
 // ── PDF merge ─────────────────────────────────────────────────
 const A4W = 595.28, A4H = 841.89;
 
+// Modern gradient cover with layered diagonal accent bands — self-contained
+// (fills its parent edge-to-edge), so the parent card needs no padding/background.
 function coverContentHTML(report) {
   const job = jobsCache.find(j => j.id === report.job_id);
+  const initial = escH((report.project_name || job?.job_name || 'P').trim().charAt(0).toUpperCase() || 'P');
   return `
-    <div style="text-align:center;margin-top:18%">
-      <div style="font-size:.9em;letter-spacing:3px;color:#666;margin-bottom:1.8em">MONTHLY PROGRESS REPORT</div>
-      <div style="font-size:2em;font-weight:800;margin-bottom:.6em;line-height:1.4">${escH(report.project_name || job?.job_name || 'ยังไม่ระบุชื่อโครงการ')}</div>
-      <div style="font-size:1.05em;color:#555;margin-bottom:2.8em">${escH(job?.job_code || '')}</div>
-      <div style="font-size:1.3em;font-weight:700;margin-bottom:4.2em">${fmtMonth(report.report_month)}</div>
-      <div style="font-size:.9em;color:#666;line-height:2">
+    <div style="position:absolute;inset:0;background:linear-gradient(150deg,#0f2942 0%,#1a3c5e 45%,#2d6a9f 100%)"></div>
+    <div style="position:absolute;inset:0;overflow:hidden">
+      <div style="position:absolute;width:150%;height:55%;background:rgba(255,255,255,.07);transform:rotate(-11deg);top:-8%;right:-35%"></div>
+      <div style="position:absolute;width:130%;height:38%;background:rgba(255,255,255,.05);transform:rotate(-11deg);bottom:-14%;left:-30%"></div>
+      <div style="position:absolute;width:130%;height:13%;background:rgba(255,255,255,.85);transform:rotate(-11deg);bottom:28%;left:-30%"></div>
+    </div>
+    <div style="position:relative;height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:9% 10%;box-sizing:border-box;color:#fff">
+      <div style="width:2.6em;height:2.6em;border-radius:50%;background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center;font-size:1.15em;font-weight:800">${initial}</div>
+      <div>
+        <div style="font-size:.85em;letter-spacing:3px;opacity:.8;margin-bottom:.7em">MONTHLY PROGRESS REPORT</div>
+        <div style="font-size:2.2em;font-weight:800;line-height:1.3;margin-bottom:.35em">${escH(report.project_name || job?.job_name || 'ยังไม่ระบุชื่อโครงการ')}</div>
+        <div style="font-size:1em;opacity:.85;margin-bottom:1.8em">${escH(job?.job_code || '')}</div>
+        <div style="font-size:1.5em;font-weight:700">${fmtMonth(report.report_month)}</div>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,.3);padding-top:1em;font-size:.85em;opacity:.9;line-height:1.9">
         ${report.companies?.name ? `<div>${escH(report.companies.name)}</div>` : ''}
-        ${report.contract_no ? `<div>Contract No. ${escH(report.contract_no)}</div>` : '<div style="color:#bbb">Contract No. —</div>'}
+        ${report.contract_no ? `<div>Contract No. ${escH(report.contract_no)}</div>` : '<div style="opacity:.6">Contract No. —</div>'}
       </div>
     </div>`;
 }
 
+// Section divider — same color language as the cover (badge + accent band)
+// but lighter, so it reads as "you're entering a new part" without
+// overpowering the plain content pages around it.
 function sectionCoverContentHTML(topic) {
   return `
-    <div style="text-align:center;margin-top:40%">
-      <div style="font-size:.85em;letter-spacing:3px;color:#999;margin-bottom:1.4em">SECTION ${escH(topic.code)}</div>
-      <div style="font-size:1.9em;font-weight:800;line-height:1.4">${escH(topic.title)}</div>
+    <div style="position:absolute;inset:0;background:#fff;overflow:hidden">
+      <div style="position:absolute;width:170%;height:34%;background:linear-gradient(135deg,#1a3c5e,#2d6a9f);transform:rotate(-9deg);top:-12%;left:-35%"></div>
+    </div>
+    <div style="position:relative;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 12%;box-sizing:border-box">
+      <div style="width:2.4em;height:2.4em;border-radius:50%;background:linear-gradient(135deg,#1a3c5e,#2d6a9f);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1em;font-weight:800;margin-bottom:.9em;box-shadow:0 8px 20px rgba(26,60,94,.28)">${escH(topic.code)}</div>
+      <div style="font-size:.72em;letter-spacing:2.5px;color:#94a3b8;margin-bottom:.5em">SECTION</div>
+      <div style="font-size:1.5em;font-weight:800;color:#1a3c5e;text-align:center;line-height:1.4">${escH(topic.title)}</div>
     </div>`;
 }
 
@@ -690,7 +709,7 @@ function tocContentHTML() {
 
 function buildCoverElement(report) {
   const div = document.createElement('div');
-  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;background:#fff;padding:80px 60px;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:16px;';
+  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;overflow:hidden;font-family:Sarabun,sans-serif;font-size:16px;';
   div.innerHTML = coverContentHTML(report);
   return div;
 }
@@ -704,7 +723,7 @@ function buildTocElement() {
 
 function buildSectionCoverElement(topic) {
   const div = document.createElement('div');
-  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;background:#fff;padding:80px 60px;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:16px;';
+  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;overflow:hidden;font-family:Sarabun,sans-serif;font-size:16px;';
   div.innerHTML = sectionCoverContentHTML(topic);
   return div;
 }
@@ -745,6 +764,16 @@ function pageCardHTML(label, innerHTML) {
     </div>`;
 }
 
+// for self-contained page content (cover, section dividers) that manages
+// its own full-bleed background — no white bg/padding from the card itself
+function rawPageCardHTML(label, innerHTML) {
+  return `
+    <div style="text-align:center;font-size:10px;color:#bbb;margin:8px 0">${label}</div>
+    <div style="position:relative;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;overflow:hidden;margin-bottom:4px;font-family:Sarabun,sans-serif;font-size:13px">
+      ${innerHTML}
+    </div>`;
+}
+
 // ── Live preview panel (right side of the report detail modal) ─
 // Every page — cover, TOC, and every page of every attached file — renders
 // as the same flat white "page card", stacked in order, so the whole
@@ -761,11 +790,7 @@ function renderLivePreview() {
   const attachedPages = documentFlowInOrder().map(entry => {
     const t = entry.topic;
     if (entry.kind === 'section') {
-      return pageCardHTML(`หน้า ${pageMap[t.id]} — เริ่มหมวด ${escH(t.code)}`, `
-        <div style="text-align:center;padding:0 10%">
-          <div style="font-size:.7em;letter-spacing:2px;color:#bbb;margin-bottom:1em">SECTION ${escH(t.code)}</div>
-          <div style="font-size:1.3em;font-weight:800;color:#1a3c5e;line-height:1.4">${escH(t.title)}</div>
-        </div>`);
+      return rawPageCardHTML(`หน้า ${pageMap[t.id]} — เริ่มหมวด ${escH(t.code)}`, sectionCoverContentHTML(t));
     }
     const item = currentItems.find(i => i.topic_id === t.id && i.file_url);
     if (!item) return '';
@@ -788,10 +813,7 @@ function renderLivePreview() {
   }).join('');
 
   el.innerHTML = `
-    <div style="text-align:center;font-size:10px;color:#bbb;margin-bottom:8px">หน้า 1 — ปก</div>
-    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;padding:9%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:13px;overflow:hidden;margin-bottom:8px">
-      ${coverContentHTML(currentReport)}
-    </div>
+    ${rawPageCardHTML('หน้า 1 — ปก', coverContentHTML(currentReport))}
     <div style="text-align:center;font-size:11px;color:#888;margin-bottom:8px">แนบไฟล์แล้ว ${done}/${leaves.length} หัวข้อ</div>
     <div style="text-align:center;font-size:10px;color:#bbb;margin-bottom:8px">หน้า 2 — สารบัญ</div>
     <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;min-height:calc(100% * 297 / 210);padding:9% 7%;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e;font-size:12px;margin-bottom:8px">
