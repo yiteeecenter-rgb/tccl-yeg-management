@@ -657,7 +657,20 @@ function buildTocElement() {
   return div;
 }
 
+function pageCardHTML(label, innerHTML) {
+  return `
+    <div style="text-align:center;font-size:10px;color:#bbb;margin:8px 0">${label}</div>
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;overflow:hidden;margin-bottom:4px;display:flex;align-items:center;justify-content:center">
+      ${innerHTML}
+    </div>`;
+}
+
 // ── Live preview panel (right side of the report detail modal) ─
+// Every page — cover, TOC, and each attached file — renders as the same
+// flat white "page card" so the whole stack looks like one uniform document.
+// PDFs are shown as a labelled placeholder card (not rendered inline): the
+// real content is embedded correctly when the final PDF is merged, and can
+// be inspected via the "ดูตัวอย่าง" button which opens the actual file.
 function renderLivePreview() {
   const el = document.getElementById('mr-live-preview');
   if (!el || !currentReport) return;
@@ -670,13 +683,17 @@ function renderLivePreview() {
     .map(t => {
       const item = currentItems.find(i => i.topic_id === t.id);
       const isImg = (item.file_type || '').startsWith('image/');
-      return `
-      <div style="text-align:center;font-size:10px;color:#bbb;margin:8px 0">หน้า ${pageMap[t.id]} — ${escH(t.code)} ${escH(t.title)}</div>
-      <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);width:100%;aspect-ratio:210/297;overflow:hidden;margin-bottom:4px">
-        ${isImg
-          ? `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`
-          : `<iframe src="${escH(item.file_url)}#toolbar=0&navpanes=0&view=FitH" style="width:100%;height:100%;border:none;pointer-events:none"></iframe>`}
-      </div>`;
+      const label = `หน้า ${pageMap[t.id]} — ${escH(t.code)} ${escH(t.title)}`;
+      if (isImg) {
+        return pageCardHTML(label, `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`);
+      }
+      const pages = item.page_count > 1 ? `${item.page_count} หน้า` : '1 หน้า';
+      return pageCardHTML(label, `
+        <div style="text-align:center;color:#94a3b8">
+          <div style="font-size:2.2em;margin-bottom:.2em">📄</div>
+          <div style="font-size:.8em;color:#64748b;padding:0 12%;word-break:break-word">${escH(item.file_name || 'PDF')}</div>
+          <div style="font-size:.72em;color:#cbd5e1;margin-top:.3em">${pages}</div>
+        </div>`);
     }).join('');
 
   el.innerHTML = `
