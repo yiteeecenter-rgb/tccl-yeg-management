@@ -431,6 +431,10 @@ select.form-control { font-family:unset; }
           <i data-lucide="zap" class="tab-icon"></i>
           <span class="nav-label">Power Cable Installation</span>
         </div>
+        <div class="nav-tab" onclick="switchTab('monthly-report',this)">
+          <i data-lucide="calendar-check" class="tab-icon"></i>
+          <span class="nav-label">รายงานประจำเดือน</span>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
@@ -530,6 +534,9 @@ select.form-control { font-family:unset; }
 
     <!-- ── TERMINATION KIT ──────────────────────────────────── -->
     <div class="tab-pane" id="tab-termination"></div>
+
+    <!-- ── MONTHLY REPORT ───────────────────────────────────── -->
+    <div class="tab-pane" id="tab-monthly-report"></div>
 
   </div><!-- /main-content -->
   </div><!-- /app-body -->
@@ -1079,6 +1086,7 @@ window.switchTab = (name, el) => {
   if (name === 'approval') loadApproval();
   if (name === 'admin') { loadUsers(); loadJobs(); }
   if (name === 'termination') window._termInit?.();
+  if (name === 'monthly-report') window._mrInit?.();
 };
 
 // ── Dashboard ─────────────────────────────────────────────────
@@ -2489,5 +2497,6 @@ window.printFromDetail = async (id) => {
 
 </script>
 <script type="module" src="js/termination.js"></script>
+<script type="module" src="js/monthly-report.js"></script>
 </body>
 </html>
