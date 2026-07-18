@@ -558,33 +558,116 @@ function injectTopicsModal() {
 </div>`);
 }
 
+function allMains()        { return topics.filter(t => !t.parent_id).sort((a,b)=>a.sort_order-b.sort_order); }
+function allSubsOf(id)     { return topics.filter(t => t.parent_id === id).sort((a,b)=>a.sort_order-b.sort_order); }
+
 function topicMgrRowHTML(t, isSub) {
   const dis = !t.is_active;
   return `
   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;${dis?'opacity:.45':''}${isSub?';padding-left:24px':''}">
+    <span style="cursor:grab;color:#cbd5e1;font-size:15px;user-select:none;flex-shrink:0" title="ลากเพื่อเรียงลำดับ">⠿</span>
     <input class="form-control" style="width:60px;height:32px;font-size:12px" value="${escH(t.code)}"
       onblur="window._mrTopicEdit('${t.id}','code',this.value)">
     <input class="form-control" style="flex:1;height:32px;font-size:13px" value="${escH(t.title)}"
       onblur="window._mrTopicEdit('${t.id}','title',this.value)">
     <button class="btn btn-sm btn-outline" style="font-size:11px" onclick="window._mrTopicToggle('${t.id}',${!t.is_active})">${dis?'เปิดใช้':'ปิดใช้'}</button>
+    <button class="btn btn-sm btn-danger" style="font-size:11px" onclick="window._mrTopicDelete('${t.id}')">ลบ</button>
   </div>`;
 }
 
 function renderTopicsMgr() {
   const el = document.getElementById('mr-topics-mgr-list');
   if (!el) return;
-  showInactiveTopics = true;
-  const html = mains().map(m => `
-    <div style="margin-bottom:12px;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px">
+  const mainList = allMains();
+  const html = mainList.map((m, mIdx) => {
+    const subList = allSubsOf(m.id);
+    return `
+    <div draggable="true"
+         ondragstart="window._mrMainDragStart(event,${mIdx})"
+         ondragover="window._mrMainDragOver(event)"
+         ondrop="window._mrMainDrop(event,${mIdx})"
+         ondragend="window._mrMainDragEnd(event)"
+         style="margin-bottom:12px;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px">
       ${topicMgrRowHTML(m, false)}
-      ${subsOf(m.id).map(s => topicMgrRowHTML(s, true)).join('')}
+      ${subList.map((s, sIdx) => `
+        <div draggable="true"
+             ondragstart="window._mrSubDragStart(event,'${m.id}',${sIdx})"
+             ondragover="window._mrSubDragOver(event)"
+             ondrop="window._mrSubDrop(event,'${m.id}',${sIdx})"
+             ondragend="window._mrSubDragEnd(event)">
+          ${topicMgrRowHTML(s, true)}
+        </div>`).join('')}
       <div style="padding-left:24px;margin-top:4px">
         <button class="btn btn-sm btn-outline" style="font-size:11px" onclick="window._mrAddSub('${m.id}')">+ เพิ่มหัวข้อย่อย</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   el.innerHTML = html || '<div style="color:#94a3b8;text-align:center;padding:20px">ยังไม่มีหัวข้อ</div>';
-  showInactiveTopics = false;
 }
+
+// ── Drag & drop reorder (main topics, and sub-topics within their parent) ─
+let _topicDragCtx = null;
+
+window._mrMainDragStart = function (e, idx) {
+  _topicDragCtx = { kind: 'main', fromIndex: idx };
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '.4';
+};
+window._mrMainDragOver = function (e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+window._mrMainDragEnd = function (e) { e.currentTarget.style.opacity = ''; _topicDragCtx = null; };
+window._mrMainDrop = async function (e, idx) {
+  e.preventDefault();
+  if (!_topicDragCtx || _topicDragCtx.kind !== 'main') return;
+  const fromIdx = _topicDragCtx.fromIndex;
+  _topicDragCtx = null;
+  if (fromIdx === idx) return;
+  const list = allMains();
+  const moved = list.splice(fromIdx, 1)[0];
+  list.splice(idx, 0, moved);
+  // renumber every main (multiples of 10) and cascade-renumber their subs
+  // to stay relative to the parent's new position
+  const updates = [];
+  list.forEach((m, i) => {
+    const newOrder = (i + 1) * 10;
+    updates.push({ id: m.id, sort_order: newOrder });
+    allSubsOf(m.id).forEach((s, si) => updates.push({ id: s.id, sort_order: newOrder + si + 1 }));
+  });
+  try {
+    await Promise.all(updates.map(u => sb.from('monthly_report_topics').update({ sort_order: u.sort_order }).eq('id', u.id)));
+    updates.forEach(u => { const t = topics.find(x => x.id === u.id); if (t) t.sort_order = u.sort_order; });
+    renderTopicsMgr();
+    renderTab();
+  } catch (err) { toast('เกิดข้อผิดพลาด: ' + err.message); }
+};
+
+window._mrSubDragStart = function (e, parentId, idx) {
+  e.stopPropagation();
+  _topicDragCtx = { kind: 'sub', parentId, fromIndex: idx };
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '.4';
+};
+window._mrSubDragOver = function (e) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; };
+window._mrSubDragEnd = function (e) { e.currentTarget.style.opacity = ''; _topicDragCtx = null; };
+window._mrSubDrop = async function (e, parentId, idx) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!_topicDragCtx || _topicDragCtx.kind !== 'sub' || _topicDragCtx.parentId !== parentId) return;
+  const fromIdx = _topicDragCtx.fromIndex;
+  _topicDragCtx = null;
+  if (fromIdx === idx) return;
+  const main = topics.find(t => t.id === parentId);
+  if (!main) return;
+  const list = allSubsOf(parentId);
+  const moved = list.splice(fromIdx, 1)[0];
+  list.splice(idx, 0, moved);
+  const updates = list.map((s, i) => ({ id: s.id, sort_order: main.sort_order + i + 1 }));
+  try {
+    await Promise.all(updates.map(u => sb.from('monthly_report_topics').update({ sort_order: u.sort_order }).eq('id', u.id)));
+    updates.forEach(u => { const t = topics.find(x => x.id === u.id); if (t) t.sort_order = u.sort_order; });
+    renderTopicsMgr();
+    renderTab();
+  } catch (err) { toast('เกิดข้อผิดพลาด: ' + err.message); }
+};
 
 window._mrOpenTopics = function () {
   injectTopicsModal();
@@ -612,6 +695,29 @@ window._mrTopicToggle = async function (id, active) {
     renderTopicsMgr();
     renderTab();
   } catch (e) { toast('เกิดข้อผิดพลาด: ' + e.message); }
+};
+
+window._mrTopicDelete = async function (id) {
+  const t = topics.find(x => x.id === id);
+  if (!t) return;
+  const isMain = !t.parent_id;
+  const children = isMain ? topics.filter(x => x.parent_id === id) : [];
+  const msg = children.length
+    ? `ต้องการลบหมวด "${t.title}" พร้อมหัวข้อย่อยทั้งหมด (${children.length} รายการ) ใช่ไหม? (ลบไม่ได้ถ้ามีรายงานแนบไฟล์ไว้แล้ว — ใช้ "ปิดใช้" แทนได้)`
+    : `ต้องการลบหัวข้อ "${t.title}" ใช่ไหม? (ลบไม่ได้ถ้ามีรายงานแนบไฟล์ไว้แล้ว — ใช้ "ปิดใช้" แทนได้)`;
+  const ok = await window.appConfirm({ title: 'ลบหัวข้อ', message: msg, okText: 'ลบ', okColor: '#e53e3e' });
+  if (!ok) return;
+  try {
+    const { error } = await sb.from('monthly_report_topics').delete().eq('id', id);
+    if (error) throw error;
+    const removedIds = new Set([id, ...children.map(c => c.id)]);
+    topics = topics.filter(x => !removedIds.has(x.id));
+    renderTopicsMgr();
+    renderTab();
+    toast('ลบหัวข้อแล้ว');
+  } catch (e) {
+    toast('ลบไม่ได้: มีรายงานแนบไฟล์ในหัวข้อนี้อยู่แล้ว ใช้ปุ่ม "ปิดใช้" แทนได้ครับ');
+  }
 };
 
 window._mrAddMain = async function () {
