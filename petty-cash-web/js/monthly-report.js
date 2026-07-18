@@ -436,22 +436,19 @@ function renderDetailBody() {
   showInactiveTopics = false;
   const html = mains().map(m => {
     const subs = subsOf(m.id);
-    if (subs.length === 0) {
-      // leaf main item (e.g. 9, 10, 11)
-      return `<div style="margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:#1a3c5e;margin-bottom:6px">${escH(m.code)}  ${escH(m.title)}</div>
-        ${leafRowHTML(m)}
-      </div>`;
-    }
-    const done = subs.filter(s => currentItems.some(i => i.topic_id === s.id && i.file_url)).length;
+    // main items with no sub-items (e.g. 9, 10, 11) are leaves themselves —
+    // still wrapped in the same card style as sectioned items, for a
+    // consistent look regardless of whether a topic has sub-items or not
+    const rows = subs.length ? subs : [m];
+    const done = rows.filter(s => currentItems.some(i => i.topic_id === s.id && i.file_url)).length;
     return `
       <div style="margin-bottom:14px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
         <div style="background:#f7fafc;padding:10px 14px;font-size:13.5px;font-weight:700;color:#1a3c5e;display:flex;justify-content:space-between;align-items:center">
           <span>${escH(m.code)}  ${escH(m.title)}</span>
-          <span class="badge ${done===subs.length?'badge-approved':'badge-pending'}">${done}/${subs.length}</span>
+          <span class="badge ${done===rows.length?'badge-approved':'badge-pending'}">${done}/${rows.length}</span>
         </div>
         <div style="padding:10px 14px">
-          ${subs.map(s => leafRowHTML(s)).join('')}
+          ${subs.length ? subs.map(s => leafRowHTML(s)).join('') : leafRowHTML(m)}
         </div>
       </div>`;
   }).join('');
