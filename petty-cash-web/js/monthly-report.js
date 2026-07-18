@@ -12,6 +12,10 @@ let showInactiveTopics = false;
 let currentReport = null;
 let currentItems   = [];
 
+let duplicateSourceReport = null;
+let duplicateSourceItems  = [];
+let duplicateSelected     = new Set(); // topic_id set to keep on the new report
+
 const pdfPageThumbCache = {}; // file_url -> [{url, landscape}, ...] one flat image per PDF page
 const imageOrientationCache = {}; // file_url -> boolean (true = landscape)
 let previewToken = 0;
@@ -200,6 +204,7 @@ function renderTab() {
           <td>${escH(r.profiles?.full_name || '—')}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm btn-primary" onclick="window._mrOpenReport('${r.id}')">เปิด</button>
+            <button class="btn btn-sm btn-outline" onclick="window._mrOpenDuplicateModal('${r.id}')">📋 คัดลอก</button>
             ${canManage ? `<button class="btn btn-sm btn-danger" onclick="window._mrDeleteReport('${r.id}')">ลบ</button>` : ''}
           </td>
         </tr>`;
@@ -313,6 +318,187 @@ window._mrDeleteReport = async function (id) {
     toast('ลบรายงานแล้ว');
     renderTab();
   } catch (e) { toast('เกิดข้อผิดพลาด: ' + e.message); }
+};
+
+// ── Duplicate report modal ───────────────────────────────────
+// Copies a report's header + selected attached files into a new month for
+// the same station, so recurring topics don't need re-uploading — only the
+// unticked topics are left empty for a fresh attachment.
+function injectDuplicateModal() {
+  if (document.getElementById('modal-mr-dup')) return;
+  document.body.insertAdjacentHTML('beforeend', `
+<div class="modal-overlay" id="modal-mr-dup">
+  <div class="modal-box" style="max-width:640px;width:92vw;display:flex;flex-direction:column;max-height:90vh">
+    <div class="modal-head">
+      <h3 id="mr-dup-title">คัดลอกรายงานเป็นเดือนใหม่</h3>
+      <button class="modal-close" onclick="window._mrCloseDuplicateModal()">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1">
+      <div class="form-group">
+        <label>เดือน / ปี ใหม่</label>
+        <input type="month" class="form-control" id="mr-dup-month">
+      </div>
+      <div class="form-row" style="margin:12px 0 16px">
+        <div class="form-group">
+          <label>ชื่อโครงการ</label>
+          <input class="form-control" id="mr-dup-project-name">
+        </div>
+        <div class="form-group">
+          <label>เลขที่สัญญา (Contract No.)</label>
+          <input class="form-control" id="mr-dup-contract-no">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:13px;font-weight:700;color:#334155">เลือกหัวข้อที่ต้องการคงไฟล์เดิม</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-outline" onclick="window._mrDupToggleAll(true)">เลือกทั้งหมด</button>
+          <button class="btn btn-sm btn-outline" onclick="window._mrDupToggleAll(false)">ล้างการเลือก</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:10px">หัวข้อที่ไม่ติ๊ก จะว่างไว้ให้แนบไฟล์ใหม่ในรายงานเดือนใหม่</div>
+      <div id="mr-dup-topics-list"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="window._mrCloseDuplicateModal()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="window._mrConfirmDuplicate()">คัดลอกรายงาน</button>
+    </div>
+  </div>
+</div>`);
+}
+
+function dupLeafRowHTML(topic) {
+  const item = duplicateSourceItems.find(i => i.topic_id === topic.id && i.file_url);
+  if (!item) {
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#f7fafc;margin-bottom:6px;opacity:.5">
+      <div style="width:44px;font-size:12px;color:#64748b;flex-shrink:0">${escH(topic.code)}</div>
+      <div style="flex:1;font-size:13px;color:#334155">${escH(topic.title)}</div>
+      <div style="font-size:11px;color:#94a3b8">ไม่มีไฟล์ต้นฉบับ</div>
+    </div>`;
+  }
+  const checked = duplicateSelected.has(topic.id);
+  return `
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:${checked?'#f0fdf4':'#f7fafc'};margin-bottom:6px">
+    <input type="checkbox" ${checked?'checked':''} onchange="window._mrDupToggle('${topic.id}',this.checked)" style="width:16px;height:16px;flex-shrink:0;cursor:pointer">
+    <div style="width:44px;font-size:12px;color:#64748b;flex-shrink:0">${escH(topic.code)}</div>
+    <div style="flex:1;font-size:13px;color:#334155">${escH(topic.title)}</div>
+    <div style="font-size:11px;color:#94a3b8;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(item.file_name || '')}</div>
+  </div>`;
+}
+
+function renderDupTopicsList() {
+  const el = document.getElementById('mr-dup-topics-list');
+  if (!el) return;
+  const html = mains().map(m => {
+    const subs = subsOf(m.id);
+    const rows = subs.length ? subs : [m];
+    return `
+      <div style="margin-bottom:14px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+        <div style="background:#f7fafc;padding:10px 14px;font-size:13.5px;font-weight:700;color:#1a3c5e">
+          ${escH(m.code)}  ${escH(m.title)}
+        </div>
+        <div style="padding:10px 14px">
+          ${subs.length ? subs.map(s => dupLeafRowHTML(s)).join('') : dupLeafRowHTML(m)}
+        </div>
+      </div>`;
+  }).join('');
+  el.innerHTML = html || '<div style="color:#94a3b8;text-align:center;padding:20px">ยังไม่มีหัวข้อรายงาน</div>';
+}
+
+window._mrOpenDuplicateModal = function (reportId) {
+  const report = reports.find(r => r.id === reportId);
+  if (!report) return;
+  injectDuplicateModal();
+  duplicateSourceReport = report;
+  duplicateSourceItems  = itemsByReport[reportId] || [];
+  // default: keep every topic that already has a file attached
+  duplicateSelected = new Set(duplicateSourceItems.filter(i => i.file_url).map(i => i.topic_id));
+
+  document.getElementById('mr-dup-title').textContent =
+    `คัดลอกรายงาน — ${report.jobs?.job_name || ''} (${fmtMonth(report.report_month)})`;
+
+  const nextMonth = new Date(report.report_month);
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  document.getElementById('mr-dup-month').value = nextMonth.toISOString().slice(0, 7);
+
+  document.getElementById('mr-dup-project-name').value = report.project_name || '';
+  document.getElementById('mr-dup-contract-no').value  = report.contract_no || '';
+
+  renderDupTopicsList();
+  document.getElementById('modal-mr-dup').classList.add('open');
+};
+
+window._mrCloseDuplicateModal = function () {
+  document.getElementById('modal-mr-dup')?.classList.remove('open');
+  duplicateSourceReport = null;
+  duplicateSourceItems  = [];
+  duplicateSelected     = new Set();
+};
+
+window._mrDupToggle = function (topicId, checked) {
+  if (checked) duplicateSelected.add(topicId); else duplicateSelected.delete(topicId);
+  renderDupTopicsList();
+};
+
+window._mrDupToggleAll = function (checked) {
+  if (checked) duplicateSourceItems.filter(i => i.file_url).forEach(i => duplicateSelected.add(i.topic_id));
+  else duplicateSelected.clear();
+  renderDupTopicsList();
+};
+
+window._mrConfirmDuplicate = async function () {
+  if (!duplicateSourceReport) return;
+  const month = document.getElementById('mr-dup-month').value;
+  if (!month) return toast('กรุณาเลือกเดือน/ปี');
+  const jobId = duplicateSourceReport.job_id;
+  if (month === (duplicateSourceReport.report_month || '').slice(0, 7)) {
+    return toast('กรุณาเลือกเดือนที่ต่างจากรายงานต้นฉบับ');
+  }
+  const reportMonth   = month + '-01';
+  const projectName   = document.getElementById('mr-dup-project-name').value.trim();
+  const contractNo    = document.getElementById('mr-dup-contract-no').value.trim();
+  const toCopy        = duplicateSourceItems.filter(i => i.file_url && duplicateSelected.has(i.topic_id));
+
+  let rec = reports.find(r => r.job_id === jobId && (r.report_month || '').slice(0, 7) === month);
+  try {
+    if (!rec) {
+      const { data, error } = await sb.from('monthly_reports').insert({
+        job_id: jobId, company_id: duplicateSourceReport.company_id || null, report_month: reportMonth,
+        project_name: projectName, contract_no: contractNo, created_by: window._mrCurrentUserId,
+      }).select('*, jobs(job_name,job_code), companies(name), profiles!created_by(full_name)').single();
+      if (error) throw error;
+      rec = data;
+      reports.unshift(rec);
+      itemsByReport[rec.id] = [];
+    } else {
+      const ok = await window.appConfirm({
+        title: 'มีรายงานเดือนนี้อยู่แล้ว',
+        message: `มีรายงานของ "${rec.jobs?.job_name || ''}" เดือน ${fmtMonth(reportMonth)} อยู่แล้ว ต้องการคัดลอกไฟล์ที่เลือกทับเข้าไปในรายงานนี้ใช่ไหม?`,
+        okText: 'คัดลอกทับ', okColor: '#e53e3e',
+      });
+      if (!ok) return;
+    }
+
+    if (toCopy.length) {
+      const payload = toCopy.map(i => ({
+        report_id: rec.id, topic_id: i.topic_id,
+        file_url: i.file_url, file_name: i.file_name, file_type: i.file_type, page_count: i.page_count,
+        uploaded_by: window._mrCurrentUserId,
+      }));
+      const { data, error } = await sb.from('monthly_report_items')
+        .upsert(payload, { onConflict: 'report_id,topic_id' }).select();
+      if (error) throw error;
+      const kept = (itemsByReport[rec.id] || []).filter(i => !toCopy.some(c => c.topic_id === i.topic_id));
+      itemsByReport[rec.id] = kept.concat(data);
+    }
+
+    window._mrCloseDuplicateModal();
+    renderTab();
+    toast(`คัดลอกรายงานแล้ว (${toCopy.length}/${leafTopicsInOrder().length} หัวข้อ) — แนบไฟล์ที่เหลือได้เลย`);
+    window._mrOpenReport(rec.id);
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + e.message);
+  }
 };
 
 // ── Report detail modal ──────────────────────────────────────
