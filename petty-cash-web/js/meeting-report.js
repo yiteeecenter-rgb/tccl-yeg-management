@@ -202,43 +202,49 @@ function injectDetailModal() {
   if (document.getElementById('modal-mtg-detail')) return;
   document.body.insertAdjacentHTML('beforeend', `
 <div class="modal-overlay" id="modal-mtg-detail">
-  <div class="modal-box" id="modal-mtg-detail-box" style="max-width:820px;width:95vw;display:flex;flex-direction:column;max-height:92vh">
+  <div class="modal-box" id="modal-mtg-detail-box" style="max-width:1180px;width:95vw;display:flex;flex-direction:column;max-height:92vh">
     <div class="modal-head">
       <h3 id="mtg-detail-title">รายงานการประชุม</h3>
       <button class="modal-close" onclick="window._mtgCloseDetail()">✕</button>
     </div>
-    <div class="modal-body" style="overflow-y:auto;flex:1">
-      <div class="form-row" style="margin-bottom:14px">
-        <div class="form-group">
-          <label>ครั้งที่</label>
-          <input class="form-control" id="mtg-no" onblur="window._mtgSaveMeta()">
+    <div style="display:flex;gap:0;flex:1;min-height:0;overflow:hidden">
+      <div class="modal-body" style="flex:0 0 480px;width:480px;overflow-y:auto">
+        <div class="form-row" style="margin-bottom:14px">
+          <div class="form-group">
+            <label>ครั้งที่</label>
+            <input class="form-control" id="mtg-no" oninput="window._mtgLiveInput()" onblur="window._mtgSaveMeta()">
+          </div>
+          <div class="form-group">
+            <label>วันที่ประชุม</label>
+            <input type="date" class="form-control" id="mtg-date" oninput="window._mtgLiveInput()" onblur="window._mtgSaveMeta()">
+          </div>
         </div>
-        <div class="form-group">
-          <label>วันที่ประชุม</label>
-          <input type="date" class="form-control" id="mtg-date" onblur="window._mtgSaveMeta()">
+        <div class="form-group" style="margin-bottom:14px">
+          <label>สถานที่ประชุม</label>
+          <input class="form-control" id="mtg-location" oninput="window._mtgLiveInput()" onblur="window._mtgSaveMeta()">
         </div>
-      </div>
-      <div class="form-group" style="margin-bottom:14px">
-        <label>สถานที่ประชุม</label>
-        <input class="form-control" id="mtg-location" onblur="window._mtgSaveMeta()">
-      </div>
-      <div class="form-group" style="margin-bottom:18px">
-        <label>ผู้เข้าร่วมประชุม (บรรทัดละ 1 คน)</label>
-        <textarea class="form-control" id="mtg-attendees" rows="3" onblur="window._mtgSaveMeta()"></textarea>
-      </div>
+        <div class="form-group" style="margin-bottom:18px">
+          <label>ผู้เข้าร่วมประชุม (บรรทัดละ 1 คน)</label>
+          <textarea class="form-control" id="mtg-attendees" rows="3" oninput="window._mtgLiveInput()" onblur="window._mtgSaveMeta()"></textarea>
+        </div>
 
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <h4 style="margin:0;font-size:14px;color:#1a3c5e">หัวข้อที่ประชุม / มติที่ประชุม</h4>
-        <button class="btn btn-sm btn-outline" onclick="window._mtgAddTopic()">+ เพิ่มหัวข้อ</button>
-      </div>
-      <div id="mtg-topics-list" style="margin-bottom:20px"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h4 style="margin:0;font-size:14px;color:#1a3c5e">หัวข้อที่ประชุม / มติที่ประชุม</h4>
+          <button class="btn btn-sm btn-outline" onclick="window._mtgAddTopic()">+ เพิ่มหัวข้อ</button>
+        </div>
+        <div id="mtg-topics-list" style="margin-bottom:20px"></div>
 
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <h4 style="margin:0;font-size:14px;color:#1a3c5e">Action Item (ติดตามข้ามการประชุม)</h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h4 style="margin:0;font-size:14px;color:#1a3c5e">Action Item (ติดตามข้ามการประชุม)</h4>
+        </div>
+        <div id="mtg-action-open" style="margin-bottom:10px"></div>
+        <div id="mtg-action-add" style="margin-bottom:16px"></div>
+        <div id="mtg-action-done-wrap"></div>
       </div>
-      <div id="mtg-action-open" style="margin-bottom:10px"></div>
-      <div id="mtg-action-add" style="margin-bottom:16px"></div>
-      <div id="mtg-action-done-wrap"></div>
+      <div style="flex:1;min-width:0;border-left:1px solid #e2e8f0;overflow-y:auto;background:#f7f9fc;padding:20px">
+        <div style="font-size:12px;color:#888;margin-bottom:10px">— ตัวอย่างรายงาน (อัปเดตอัตโนมัติ) —</div>
+        <div id="mtg-live-preview" style="max-width:560px;margin:0 auto"></div>
+      </div>
     </div>
     <div class="modal-foot" style="justify-content:space-between">
       <div style="font-size:12px;color:#888">บันทึกอัตโนมัติเมื่อแก้ไข</div>
@@ -252,16 +258,27 @@ function injectDetailModal() {
 }
 window._mtgPrintCurrent = function () { if (currentMeeting) window._mtgPrint(currentMeeting.id); };
 
+window._mtgLiveInput = function () {
+  if (!currentMeeting) return;
+  currentMeeting.meeting_no  = document.getElementById('mtg-no').value;
+  currentMeeting.meeting_date = document.getElementById('mtg-date').value;
+  currentMeeting.location    = document.getElementById('mtg-location').value;
+  currentMeeting.attendees   = document.getElementById('mtg-attendees').value;
+  renderLivePreview();
+};
+
 function topicRowHTML(topic, idx) {
   return `
   <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px">
       <input class="form-control" style="flex:1;font-weight:600" value="${escH(topic.title || '')}"
         placeholder="หัวข้อที่ ${idx + 1}"
+        oninput="window._mtgTopicLiveInput(${idx},'title',this.value)"
         onblur="window._mtgTopicEdit(${idx},'title',this.value)">
       <button class="btn-del-row" title="ลบหัวข้อ" onclick="window._mtgTopicRemove(${idx})">✕</button>
     </div>
     <textarea class="form-control" rows="2" placeholder="รายละเอียด / มติที่ประชุม"
+      oninput="window._mtgTopicLiveInput(${idx},'notes',this.value)"
       onblur="window._mtgTopicEdit(${idx},'notes',this.value)">${escH(topic.notes || '')}</textarea>
   </div>`;
 }
@@ -279,12 +296,14 @@ window._mtgAddTopic = async function () {
   const topics = [...(currentMeeting.topics || []), { title: '', notes: '' }];
   await saveTopics(topics);
   renderTopicsList();
+  renderLivePreview();
 };
 window._mtgTopicRemove = async function (idx) {
   if (!currentMeeting) return;
   const topics = (currentMeeting.topics || []).filter((_, i) => i !== idx);
   await saveTopics(topics);
   renderTopicsList();
+  renderLivePreview();
 };
 window._mtgTopicEdit = async function (idx, field, value) {
   if (!currentMeeting) return;
@@ -292,6 +311,14 @@ window._mtgTopicEdit = async function (idx, field, value) {
   if (!topics[idx]) return;
   topics[idx] = { ...topics[idx], [field]: value };
   await saveTopics(topics);
+};
+window._mtgTopicLiveInput = function (idx, field, value) {
+  if (!currentMeeting) return;
+  const topics = [...(currentMeeting.topics || [])];
+  if (!topics[idx]) return;
+  topics[idx] = { ...topics[idx], [field]: value };
+  currentMeeting.topics = topics;
+  renderLivePreview();
 };
 async function saveTopics(topics) {
   try {
@@ -313,10 +340,16 @@ function actionOpenRowHTML(item) {
   return `
   <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;background:${isOverdue(item)?'#fef2f2':'#f7fafc'};margin-bottom:6px">
     <div style="flex:1">
-      <input class="form-control" style="margin-bottom:4px" value="${escH(item.issue)}" onblur="window._mtgActionEdit('${item.id}','issue',this.value)">
+      <input class="form-control" style="margin-bottom:4px" value="${escH(item.issue)}"
+        oninput="window._mtgActionLiveInput('${item.id}','issue',this.value)"
+        onblur="window._mtgActionEdit('${item.id}','issue',this.value)">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <input class="form-control" style="width:150px;font-size:12px" placeholder="ผู้รับผิดชอบ" value="${escH(item.responsible || '')}" onblur="window._mtgActionEdit('${item.id}','responsible',this.value)">
-        <input type="date" class="form-control" style="width:150px;font-size:12px" value="${item.due_date || ''}" onblur="window._mtgActionEdit('${item.id}','due_date',this.value)">
+        <input class="form-control" style="width:150px;font-size:12px" placeholder="ผู้รับผิดชอบ" value="${escH(item.responsible || '')}"
+          oninput="window._mtgActionLiveInput('${item.id}','responsible',this.value)"
+          onblur="window._mtgActionEdit('${item.id}','responsible',this.value)">
+        <input type="date" class="form-control" style="width:150px;font-size:12px" value="${item.due_date || ''}"
+          oninput="window._mtgActionLiveInput('${item.id}','due_date',this.value)"
+          onblur="window._mtgActionEdit('${item.id}','due_date',this.value)">
         ${itemStatusBadge(item)}
         <span style="font-size:11px;color:#94a3b8;align-self:center">${meetingLabel}</span>
       </div>
@@ -380,6 +413,7 @@ window._mtgActionAdd = async function () {
     currentActionItems.push(data);
     actionItemsByJob[currentMeeting.job_id] = currentActionItems;
     renderActionItems();
+    renderLivePreview();
     renderTab();
     toast('เพิ่ม Action Item แล้ว');
   } catch (e) { toast('เกิดข้อผิดพลาด: ' + e.message); }
@@ -397,6 +431,13 @@ window._mtgActionEdit = async function (id, field, value) {
   } catch (e) { toast('บันทึกไม่สำเร็จ: ' + e.message); }
 };
 
+window._mtgActionLiveInput = function (id, field, value) {
+  const item = currentActionItems.find(i => i.id === id);
+  if (!item) return;
+  item[field] = value;
+  renderLivePreview();
+};
+
 window._mtgActionSetStatus = async function (id, status) {
   const item = currentActionItems.find(i => i.id === id);
   if (!item) return;
@@ -406,6 +447,7 @@ window._mtgActionSetStatus = async function (id, status) {
     if (error) throw error;
     Object.assign(item, payload);
     renderActionItems();
+    renderLivePreview();
     renderTab();
   } catch (e) { toast('เกิดข้อผิดพลาด: ' + e.message); }
 };
@@ -419,6 +461,7 @@ window._mtgActionDelete = async function (id) {
     currentActionItems = currentActionItems.filter(i => i.id !== id);
     actionItemsByJob[currentMeeting.job_id] = currentActionItems;
     renderActionItems();
+    renderLivePreview();
     renderTab();
     toast('ลบแล้ว');
   } catch (e) { toast('เกิดข้อผิดพลาด: ' + e.message); }
@@ -440,6 +483,7 @@ window._mtgOpenMeeting = async function (meetingId) {
 
   renderTopicsList();
   renderActionItems();
+  renderLivePreview();
   document.getElementById('modal-mtg-detail').classList.add('open');
 };
 window._mtgCloseDetail = function () {
@@ -470,8 +514,8 @@ window._mtgSaveMeta = async function () {
   } catch (e) { toast('บันทึกไม่สำเร็จ: ' + e.message); }
 };
 
-// ── Print ──────────────────────────────────────────────────────
-function buildMeetingPrintHTML(meeting, items) {
+// ── Print / preview (both render the same document content) ───
+function buildMeetingDocContentHTML(meeting, items) {
   const attendeeLines = (meeting.attendees || '').split('\n').map(s => s.trim()).filter(Boolean);
   const topics = meeting.topics || [];
   const open = items.filter(i => i.status === 'pending');
@@ -479,7 +523,6 @@ function buildMeetingPrintHTML(meeting, items) {
   const orderedItems = [...open, ...done];
 
   return `
-  <div style="padding:16mm;background:#fff;width:210mm;min-height:297mm;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e">
     <div style="text-align:center;font-size:16pt;font-weight:700;margin-bottom:4pt">รายงานการประชุม</div>
     <div style="text-align:center;font-size:11pt;color:#64748b;margin-bottom:14pt">${escH(meeting.jobs?.job_name || '')} ${meeting.jobs?.job_code ? '(' + escH(meeting.jobs.job_code) + ')' : ''}</div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:14pt;font-size:10.5pt">
@@ -522,8 +565,28 @@ function buildMeetingPrintHTML(meeting, items) {
         <td style="width:50%">………………………………………<br>( &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; )<br><strong>ผู้บันทึกการประชุม</strong></td>
         <td style="width:50%">………………………………………<br>( &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; )<br><strong>ผู้ตรวจสอบ / ประธานการประชุม</strong></td>
       </tr>
-    </table>
+    </table>`;
+}
+
+function buildMeetingPrintHTML(meeting, items) {
+  return `<div style="padding:16mm;background:#fff;width:210mm;min-height:297mm;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e">
+    ${buildMeetingDocContentHTML(meeting, items)}
   </div>`;
+}
+
+// Live preview panel (right side of the detail modal) — same content as the
+// print output, shrunk to fit the panel with `zoom` so it reflows like a
+// real page instead of leaving dead whitespace behind a CSS transform.
+function renderLivePreview() {
+  const el = document.getElementById('mtg-live-preview');
+  if (!el || !currentMeeting) return;
+  const content = buildMeetingDocContentHTML(currentMeeting, currentActionItems);
+  el.innerHTML = `
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden">
+      <div style="width:794px;zoom:.7;padding:16mm;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e">
+        ${content}
+      </div>
+    </div>`;
 }
 
 window._mtgPrint = function (meetingId) {
