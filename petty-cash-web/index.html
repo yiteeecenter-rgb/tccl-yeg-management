@@ -435,6 +435,10 @@ select.form-control { font-family:unset; }
           <i data-lucide="calendar-check" class="tab-icon"></i>
           <span class="nav-label">รายงานประจำเดือน</span>
         </div>
+        <div class="nav-tab" onclick="switchTab('meeting-report',this)">
+          <i data-lucide="clipboard-list" class="tab-icon"></i>
+          <span class="nav-label">รายงานการประชุม</span>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
@@ -537,6 +541,9 @@ select.form-control { font-family:unset; }
 
     <!-- ── MONTHLY REPORT ───────────────────────────────────── -->
     <div class="tab-pane" id="tab-monthly-report"></div>
+
+    <!-- ── MEETING REPORT ───────────────────────────────────── -->
+    <div class="tab-pane" id="tab-meeting-report"></div>
 
   </div><!-- /main-content -->
   </div><!-- /app-body -->
@@ -1087,6 +1094,7 @@ window.switchTab = (name, el) => {
   if (name === 'admin') { loadUsers(); loadJobs(); }
   if (name === 'termination') window._termInit?.();
   if (name === 'monthly-report') window._mrInit?.();
+  if (name === 'meeting-report') window._mtgInit?.();
 };
 
 // ── Dashboard ─────────────────────────────────────────────────
@@ -2498,5 +2506,6 @@ window.printFromDetail = async (id) => {
 </script>
 <script type="module" src="js/termination.js"></script>
 <script type="module" src="js/monthly-report.js"></script>
+<script type="module" src="js/meeting-report.js"></script>
 </body>
 </html>
