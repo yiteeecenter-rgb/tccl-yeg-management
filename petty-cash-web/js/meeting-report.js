@@ -519,12 +519,9 @@ window._mtgSaveMeta = async function () {
 };
 
 // ── Print / preview (both render the same document content) ───
-function buildMeetingDocContentHTML(meeting, items) {
+function buildMeetingDocContentHTML(meeting) {
   const attendeeLines = (meeting.attendees || '').split('\n').map(s => s.trim()).filter(Boolean);
   const topics = meeting.topics || [];
-  const open = items.filter(i => i.status === 'pending');
-  const done = items.filter(i => i.status === 'done');
-  const orderedItems = [...open, ...done];
 
   return `
     <div style="text-align:center;font-size:16pt;font-weight:700;margin-bottom:4pt">MINUTES OF MEETING</div>
@@ -549,21 +546,6 @@ function buildMeetingDocContentHTML(meeting, items) {
         </div>`).join('') : '<span style="color:#94a3b8">— No agenda items —</span>'}
     </div>
 
-    <div style="font-size:11pt;font-weight:700;margin-bottom:6pt;border-bottom:1.5px solid #1a3c5e;padding-bottom:4pt">Action Items</div>
-    <table class="print-table" style="margin-bottom:20pt">
-      <thead><tr><th style="width:5%">#</th><th>Description</th><th style="width:20%">Responsible</th><th style="width:15%">Due Date</th><th style="width:15%">Status</th></tr></thead>
-      <tbody>
-        ${orderedItems.length ? orderedItems.map((it,i) => `
-          <tr>
-            <td>${i+1}</td>
-            <td>${escH(it.issue)}</td>
-            <td>${escH(it.responsible || '—')}</td>
-            <td>${it.due_date ? fmtDateEN(it.due_date) : '—'}</td>
-            <td>${it.status === 'done' ? 'Completed' : (isOverdue(it) ? 'Overdue' : 'Pending')}</td>
-          </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:#94a3b8">— No action items —</td></tr>`}
-      </tbody>
-    </table>
-
     <table style="width:100%;margin-top:30pt;font-size:10pt;text-align:center">
       <tr>
         <td style="width:50%">………………………………………<br>( &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; )<br><strong>Minutes Recorded By</strong></td>
@@ -572,9 +554,9 @@ function buildMeetingDocContentHTML(meeting, items) {
     </table>`;
 }
 
-function buildMeetingPrintHTML(meeting, items) {
+function buildMeetingPrintHTML(meeting) {
   return `<div style="padding:16mm;background:#fff;width:210mm;min-height:297mm;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e">
-    ${buildMeetingDocContentHTML(meeting, items)}
+    ${buildMeetingDocContentHTML(meeting)}
   </div>`;
 }
 
@@ -584,7 +566,7 @@ function buildMeetingPrintHTML(meeting, items) {
 function renderLivePreview() {
   const el = document.getElementById('mtg-live-preview');
   if (!el || !currentMeeting) return;
-  const content = buildMeetingDocContentHTML(currentMeeting, currentActionItems);
+  const content = buildMeetingDocContentHTML(currentMeeting);
   el.innerHTML = `
     <div style="background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden">
       <div style="width:794px;zoom:.7;padding:16mm;box-sizing:border-box;font-family:Sarabun,sans-serif;color:#1a3c5e">
@@ -596,8 +578,7 @@ function renderLivePreview() {
 window._mtgPrint = function (meetingId) {
   const meeting = meetings.find(m => m.id === meetingId) || currentMeeting;
   if (!meeting) return;
-  const items = actionItemsByJob[meeting.job_id] || [];
-  const html = buildMeetingPrintHTML(meeting, items);
+  const html = buildMeetingPrintHTML(meeting);
   const styles = Array.from(document.styleSheets).map(ss => {
     try { return Array.from(ss.cssRules).map(r => r.cssText).join(' '); } catch (e) { return ''; }
   }).join(' ');
