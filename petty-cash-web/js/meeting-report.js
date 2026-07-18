@@ -23,6 +23,10 @@ function fmtDateTH(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
 }
+function fmtDateEN(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
+}
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function isOverdue(item) { return item.status === 'pending' && item.due_date && item.due_date < todayStr(); }
 function itemStatusBadge(item) {
@@ -523,47 +527,47 @@ function buildMeetingDocContentHTML(meeting, items) {
   const orderedItems = [...open, ...done];
 
   return `
-    <div style="text-align:center;font-size:16pt;font-weight:700;margin-bottom:4pt">รายงานการประชุม</div>
+    <div style="text-align:center;font-size:16pt;font-weight:700;margin-bottom:4pt">MINUTES OF MEETING</div>
     <div style="text-align:center;font-size:11pt;color:#64748b;margin-bottom:14pt">${escH(meeting.jobs?.job_name || '')} ${meeting.jobs?.job_code ? '(' + escH(meeting.jobs.job_code) + ')' : ''}</div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:14pt;font-size:10.5pt">
-      <tr><td style="width:25%;padding:3pt 0">ครั้งที่</td><td style="padding:3pt 0">${escH(meeting.meeting_no || '—')}</td>
-          <td style="width:20%;padding:3pt 0">วันที่ประชุม</td><td style="padding:3pt 0">${fmtDateTH(meeting.meeting_date)}</td></tr>
-      <tr><td style="padding:3pt 0">สถานที่</td><td colspan="3" style="padding:3pt 0">${escH(meeting.location || '—')}</td></tr>
+      <tr><td style="width:25%;padding:3pt 0">Meeting No.</td><td style="padding:3pt 0">${escH(meeting.meeting_no || '—')}</td>
+          <td style="width:20%;padding:3pt 0">Date</td><td style="padding:3pt 0">${fmtDateEN(meeting.meeting_date)}</td></tr>
+      <tr><td style="padding:3pt 0">Venue</td><td colspan="3" style="padding:3pt 0">${escH(meeting.location || '—')}</td></tr>
     </table>
 
-    <div style="font-size:11pt;font-weight:700;margin-bottom:6pt;border-bottom:1.5px solid #1a3c5e;padding-bottom:4pt">ผู้เข้าร่วมประชุม</div>
+    <div style="font-size:11pt;font-weight:700;margin-bottom:6pt;border-bottom:1.5px solid #1a3c5e;padding-bottom:4pt">Attendees</div>
     <div style="font-size:10pt;margin-bottom:14pt;line-height:1.8">
       ${attendeeLines.length ? attendeeLines.map((a,i) => `${i+1}. ${escH(a)}`).join('<br>') : '—'}
     </div>
 
-    <div style="font-size:11pt;font-weight:700;margin-bottom:6pt;border-bottom:1.5px solid #1a3c5e;padding-bottom:4pt">หัวข้อที่ประชุม / มติที่ประชุม</div>
+    <div style="font-size:11pt;font-weight:700;margin-bottom:6pt;border-bottom:1.5px solid #1a3c5e;padding-bottom:4pt">Agenda / Minutes</div>
     <div style="font-size:10pt;margin-bottom:14pt;line-height:1.7">
       ${topics.length ? topics.map((t,i) => `
         <div style="margin-bottom:8pt">
-          <div style="font-weight:700">${i+1}. ${escH(t.title || '(ไม่มีชื่อหัวข้อ)')}</div>
+          <div style="font-weight:700">${i+1}. ${escH(t.title || '(Untitled item)')}</div>
           ${t.notes ? `<div style="padding-left:14pt;color:#334155">${escH(t.notes).replace(/\n/g,'<br>')}</div>` : ''}
-        </div>`).join('') : '<span style="color:#94a3b8">— ไม่มีหัวข้อ —</span>'}
+        </div>`).join('') : '<span style="color:#94a3b8">— No agenda items —</span>'}
     </div>
 
-    <div style="font-size:11pt;font-weight:700;margin-bottom:6pt;border-bottom:1.5px solid #1a3c5e;padding-bottom:4pt">Action Item</div>
+    <div style="font-size:11pt;font-weight:700;margin-bottom:6pt;border-bottom:1.5px solid #1a3c5e;padding-bottom:4pt">Action Items</div>
     <table class="print-table" style="margin-bottom:20pt">
-      <thead><tr><th style="width:5%">#</th><th>รายการ</th><th style="width:20%">ผู้รับผิดชอบ</th><th style="width:15%">กำหนดเสร็จ</th><th style="width:15%">สถานะ</th></tr></thead>
+      <thead><tr><th style="width:5%">#</th><th>Description</th><th style="width:20%">Responsible</th><th style="width:15%">Due Date</th><th style="width:15%">Status</th></tr></thead>
       <tbody>
         ${orderedItems.length ? orderedItems.map((it,i) => `
           <tr>
             <td>${i+1}</td>
             <td>${escH(it.issue)}</td>
             <td>${escH(it.responsible || '—')}</td>
-            <td>${it.due_date ? fmtDateTH(it.due_date) : '—'}</td>
-            <td>${it.status === 'done' ? 'เสร็จแล้ว' : (isOverdue(it) ? 'เกินกำหนด' : 'ค้าง')}</td>
-          </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:#94a3b8">— ไม่มี Action Item —</td></tr>`}
+            <td>${it.due_date ? fmtDateEN(it.due_date) : '—'}</td>
+            <td>${it.status === 'done' ? 'Completed' : (isOverdue(it) ? 'Overdue' : 'Pending')}</td>
+          </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:#94a3b8">— No action items —</td></tr>`}
       </tbody>
     </table>
 
     <table style="width:100%;margin-top:30pt;font-size:10pt;text-align:center">
       <tr>
-        <td style="width:50%">………………………………………<br>( &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; )<br><strong>ผู้บันทึกการประชุม</strong></td>
-        <td style="width:50%">………………………………………<br>( &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; )<br><strong>ผู้ตรวจสอบ / ประธานการประชุม</strong></td>
+        <td style="width:50%">………………………………………<br>( &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; )<br><strong>Minutes Recorded By</strong></td>
+        <td style="width:50%">………………………………………<br>( &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; )<br><strong>Reviewed By / Chairman</strong></td>
       </tr>
     </table>`;
 }
