@@ -110,12 +110,12 @@ function computePageNumbers() {
       return;
     }
     const item = currentItems.find(i => i.topic_id === entry.topic.id && i.file_url);
-    if (item) {
-      map[entry.topic.id] = page;
-      page += item.page_count || 1;
-    } else {
-      map[entry.topic.id] = null;
-    }
+    if (!item) { map[entry.topic.id] = null; return; }
+    map[entry.topic.id] = page;
+    // a real sub-topic (has a parent) gets its own 1-page cover before its
+    // content; a leaf main topic (no parent) has no separate cover
+    if (entry.topic.parent_id) page += 1;
+    page += item.page_count || 1;
   });
   return map;
 }
@@ -1030,6 +1030,23 @@ function sectionCoverContentHTML(topic) {
     </div>`;
 }
 
+// Sub-topic divider — deliberately different from both the main cover
+// (navy/gold diagonal) and the section cover (blue diagonal band + round
+// badge): a teal left-edge bar + soft organic blob, large sub-code numeral,
+// breadcrumb back to its parent section.
+function subCoverContentHTML(main, sub) {
+  return `
+    <div style="position:absolute;inset:0;background:#fff;overflow:hidden">
+      <div style="position:absolute;left:0;top:0;width:14%;height:100%;background:linear-gradient(180deg,#0ea5a4,#0f766e)"></div>
+      <div style="position:absolute;right:-12%;bottom:-16%;width:58%;height:46%;background:linear-gradient(135deg,#ccfbf1,#e0f2fe);border-radius:46% 54% 61% 39% / 38% 57% 43% 62%;transform:rotate(8deg)"></div>
+    </div>
+    <div style="position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;padding:0 12% 0 22%;box-sizing:border-box">
+      <div style="font-size:.68em;letter-spacing:1.5px;color:#94a3b8;margin-bottom:.7em">SECTION ${escH(main.code)} — ${escH(main.title)}</div>
+      <div style="font-size:2.6em;font-weight:800;color:#0f766e;line-height:1;margin-bottom:.3em">${escH(sub.code)}</div>
+      <div style="font-size:1.15em;font-weight:700;color:#1a3c5e;line-height:1.4">${escH(sub.title)}</div>
+    </div>`;
+}
+
 function tocContentHTML() {
   const pageMap = computePageNumbers();
   const pageLabel = (id) => pageMap[id] != null ? pageMap[id] : '—';
@@ -1075,6 +1092,13 @@ function buildSectionCoverElement(topic) {
   const div = document.createElement('div');
   div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;overflow:hidden;font-family:Sarabun,sans-serif;font-size:16px;';
   div.innerHTML = sectionCoverContentHTML(topic);
+  return div;
+}
+
+function buildSubCoverElement(main, sub) {
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;overflow:hidden;font-family:Sarabun,sans-serif;font-size:16px;';
+  div.innerHTML = subCoverContentHTML(main, sub);
   return div;
 }
 
@@ -1145,22 +1169,29 @@ function renderLivePreview() {
     }
     const item = currentItems.find(i => i.topic_id === t.id && i.file_url);
     if (!item) return '';
+    const isSub = !!t.parent_id;
+    const contentPage = isSub ? pageMap[t.id] + 1 : pageMap[t.id];
+    let subCoverHtml = '';
+    if (isSub) {
+      const main = topics.find(x => x.id === t.parent_id);
+      if (main) subCoverHtml = rawPageCardHTML(`หน้า ${pageMap[t.id]} — ${escH(t.code)}`, subCoverContentHTML(main, t));
+    }
     const isImg = (item.file_type || '').startsWith('image/');
     const label = `${escH(t.code)} ${escH(t.title)}`;
     if (isImg) {
       const landscape = imageOrientationCache[item.file_url];
       if (landscape === undefined) pendingImageUrls.push(item.file_url);
-      return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
+      return subCoverHtml + pageCardHTML(`หน้า ${contentPage} — ${label}`,
         `<img src="${escH(item.file_url)}" style="width:100%;height:100%;object-fit:contain;background:#fff">`, !!landscape);
     }
     const cached = pdfPageThumbCache[item.file_url];
     if (cached === undefined) pendingPdfUrls.push(item.file_url);
     if (!cached || !cached.length) {
-      return pageCardHTML(`หน้า ${pageMap[t.id]} — ${label}`,
+      return subCoverHtml + pageCardHTML(`หน้า ${contentPage} — ${label}`,
         `<span style="color:#94a3b8;font-size:12px">${cached ? 'ไม่สามารถแสดงตัวอย่างได้' : 'กำลังโหลดตัวอย่าง...'}</span>`);
     }
-    return cached.map((p, i) => pageCardHTML(
-      `หน้า ${pageMap[t.id] + i} — ${label}${cached.length > 1 ? ` (${i + 1}/${cached.length})` : ''}`,
+    return subCoverHtml + cached.map((p, i) => pageCardHTML(
+      `หน้า ${contentPage + i} — ${label}${cached.length > 1 ? ` (${i + 1}/${cached.length})` : ''}`,
       `<img src="${p.url}" style="width:100%;height:100%;object-fit:contain;background:#fff">`, p.landscape
     )).join('');
   }).join('');
@@ -1253,6 +1284,17 @@ window._mrMerge = async function () {
       }
       const item = currentItems.find(i => i.topic_id === topic.id);
       if (!item?.file_url) continue;
+      if (topic.parent_id) {
+        setStatus(`กำลังสร้างหน้าแบ่งหัวข้อย่อย — ${topic.title}...`);
+        const main = topics.find(x => x.id === topic.parent_id);
+        if (main) {
+          const subEl = buildSubCoverElement(main, topic);
+          document.body.appendChild(subEl);
+          const subCanvas = await html2canvas(subEl, { scale: 2, backgroundColor: '#ffffff' });
+          document.body.removeChild(subEl);
+          await addImagePageFromDataUrl(pdfDoc, subCanvas.toDataURL('image/png'));
+        }
+      }
       setStatus(`กำลังรวมไฟล์ (${n}/${flow.length}) — ${topic.title}...`);
       const bytes = await fetch(item.file_url).then(r => r.arrayBuffer());
       if (item.file_type === 'application/pdf') {
