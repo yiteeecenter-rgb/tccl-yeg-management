@@ -201,7 +201,7 @@ function renderTab() {
           <td>
             <span class="badge ${p.done===p.total && p.total>0 ? 'badge-approved':'badge-pending'}">${p.done}/${p.total} หัวข้อ</span>
           </td>
-          <td>${r.merged_pdf_url ? `<button class="btn btn-sm btn-outline" onclick="window.open('${escH(r.merged_pdf_url)}','_blank')">📄 ดู PDF</button>` : '<span style="color:#94a3b8;font-size:12px">ยังไม่สร้าง</span>'}</td>
+          <td>${r.merged_pdf_url ? `<button class="btn btn-sm btn-outline" onclick="window._mrViewMergedFile('${escH(r.merged_pdf_url)}','${escH(r.jobs?.job_name || '')} — ${escH(fmtMonth(r.report_month))}')">📄 ดู PDF</button>` : '<span style="color:#94a3b8;font-size:12px">ยังไม่สร้าง</span>'}</td>
           <td>${escH(r.profiles?.full_name || '—')}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm btn-primary" onclick="window._mrOpenReport('${r.id}')">เปิด</button>
@@ -613,6 +613,28 @@ window._mrPreviewFile = async function (topicId) {
   }
   body.innerHTML = pages.map((p, i) => `
     <div style="text-align:center;font-size:11px;color:#aaa;margin:${i===0?'0':'12px'} 0 4px">${pages.length > 1 ? `หน้า ${i + 1}/${pages.length}` : ''}</div>
+    <img src="${p.url}" style="max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:8px">
+  `).join('');
+};
+
+// Views any standalone PDF URL (e.g. the final merged report) the same
+// flat-page way as an individual attachment, instead of opening it in the
+// browser's native PDF viewer — keeps the look consistent with the rest of
+// the in-app preview.
+window._mrViewMergedFile = async function (url, label) {
+  injectPreviewModal();
+  document.getElementById('mr-preview-title').textContent = label || 'ไฟล์ PDF รวม';
+  document.getElementById('mr-preview-newtab').href = url;
+  const body = document.getElementById('mr-preview-body');
+  body.innerHTML = `<div style="color:#94a3b8;font-size:13px">กำลังโหลดตัวอย่าง...</div>`;
+  document.getElementById('modal-mr-preview').classList.add('open');
+  const pages = await renderPdfPagesToImages(url);
+  if (!pages.length) {
+    body.innerHTML = `<iframe src="${escH(url)}#toolbar=0&navpanes=0" style="width:100%;height:75vh;border:none;border-radius:8px;background:#fff"></iframe>`;
+    return;
+  }
+  body.innerHTML = pages.map((p, i) => `
+    <div style="text-align:center;font-size:11px;color:#aaa;margin:${i===0?'0':'12px'} 0 4px">หน้า ${i + 1}/${pages.length}</div>
     <img src="${p.url}" style="max-width:100%;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:8px">
   `).join('');
 };
@@ -1329,7 +1351,7 @@ window._mrMerge = async function () {
 
     setStatus('สร้างไฟล์ PDF รวมสำเร็จ!');
     toast('สร้างไฟล์ PDF รวมสำเร็จ');
-    window.open(merged_pdf_url, '_blank');
+    window._mrViewMergedFile(merged_pdf_url, `${currentReport.jobs?.job_name || ''} — ${fmtMonth(currentReport.report_month)}`);
   } catch (e) {
     setStatus('เกิดข้อผิดพลาด: ' + e.message);
     toast('เกิดข้อผิดพลาด: ' + e.message, 5000);
