@@ -99,7 +99,9 @@ async function computePageCount(file) {
 
 // page 1 = cover, page 2 = table of contents, content starts at page 3.
 // Each section (main topic with sub-items) gets its own 1-page section
-// cover; its TOC row points at that cover page.
+// cover; its TOC row points at that cover page. Sub-topics also always
+// reserve their own 1-page divider, even before a file is attached — only
+// leaf main topics (no parent) stay conditional on having a file.
 function computePageNumbers() {
   const map = {};
   let page = 3;
@@ -110,12 +112,11 @@ function computePageNumbers() {
       return;
     }
     const item = currentItems.find(i => i.topic_id === entry.topic.id && i.file_url);
-    if (!item) { map[entry.topic.id] = null; return; }
+    const isSub = !!entry.topic.parent_id;
+    if (!isSub && !item) { map[entry.topic.id] = null; return; }
     map[entry.topic.id] = page;
-    // a real sub-topic (has a parent) gets its own 1-page cover before its
-    // content; a leaf main topic (no parent) has no separate cover
-    if (entry.topic.parent_id) page += 1;
-    page += item.page_count || 1;
+    if (isSub) page += 1;
+    if (item) page += item.page_count || 1;
   });
   return map;
 }
@@ -1168,14 +1169,15 @@ function renderLivePreview() {
       return rawPageCardHTML(`หน้า ${pageMap[t.id]} — เริ่มหมวด ${escH(t.code)}`, sectionCoverContentHTML(t));
     }
     const item = currentItems.find(i => i.topic_id === t.id && i.file_url);
-    if (!item) return '';
     const isSub = !!t.parent_id;
-    const contentPage = isSub ? pageMap[t.id] + 1 : pageMap[t.id];
+    if (!isSub && !item) return '';
     let subCoverHtml = '';
     if (isSub) {
       const main = topics.find(x => x.id === t.parent_id);
       if (main) subCoverHtml = rawPageCardHTML(`หน้า ${pageMap[t.id]} — ${escH(t.code)}`, subCoverContentHTML(main, t));
     }
+    if (!item) return subCoverHtml;
+    const contentPage = isSub ? pageMap[t.id] + 1 : pageMap[t.id];
     const isImg = (item.file_type || '').startsWith('image/');
     const label = `${escH(t.code)} ${escH(t.title)}`;
     if (isImg) {
@@ -1283,8 +1285,11 @@ window._mrMerge = async function () {
         continue;
       }
       const item = currentItems.find(i => i.topic_id === topic.id);
-      if (!item?.file_url) continue;
-      if (topic.parent_id) {
+      const isSub = !!topic.parent_id;
+      if (!isSub && !item?.file_url) continue;
+      if (isSub) {
+        // sub-topics always reserve their divider page, even before a
+        // file is attached, so the document structure is ready in advance
         setStatus(`กำลังสร้างหน้าแบ่งหัวข้อย่อย — ${topic.title}...`);
         const main = topics.find(x => x.id === topic.parent_id);
         if (main) {
@@ -1295,6 +1300,7 @@ window._mrMerge = async function () {
           await addImagePageFromDataUrl(pdfDoc, subCanvas.toDataURL('image/png'));
         }
       }
+      if (!item?.file_url) continue;
       setStatus(`กำลังรวมไฟล์ (${n}/${flow.length}) — ${topic.title}...`);
       const bytes = await fetch(item.file_url).then(r => r.arrayBuffer());
       if (item.file_type === 'application/pdf') {
