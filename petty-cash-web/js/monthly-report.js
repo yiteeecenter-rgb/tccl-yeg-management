@@ -1241,6 +1241,25 @@ async function addImagePageFromFile(pdfDoc, bytes, mimeType) {
   page.drawImage(img, { x: (pageW - w) / 2, y: (pageH - h) / 2, width: w, height: h });
 }
 
+// Some real-world PDFs (non-standard xref/object streams) make pdf-lib hang
+// or mis-parse when copying pages directly — pdf.js handles the same files
+// fine (already used for the live preview), so if pdf-lib doesn't finish
+// cleanly within a few seconds, fall back to rasterizing each page as an
+// image instead of silently dropping content from the merged file.
+async function copyPdfPagesReliable(pdfDoc, PDFDocument, bytes, url) {
+  const withTimeout = (p, ms) => Promise.race([
+    p, new Promise((_, rej) => setTimeout(() => rej(new Error('pdf-lib timeout')), ms)),
+  ]);
+  try {
+    const src = await withTimeout(PDFDocument.load(bytes), 8000);
+    const copied = await withTimeout(pdfDoc.copyPages(src, src.getPageIndices()), 8000);
+    copied.forEach(p => pdfDoc.addPage(p));
+  } catch (e) {
+    const pages = await renderPdfPagesToImages(url);
+    for (const p of pages) await addImagePageFromDataUrl(pdfDoc, p.url);
+  }
+}
+
 window._mrMerge = async function () {
   if (!currentReport) return;
   const btn = document.getElementById('mr-merge-btn');
@@ -1304,9 +1323,7 @@ window._mrMerge = async function () {
       setStatus(`กำลังรวมไฟล์ (${n}/${flow.length}) — ${topic.title}...`);
       const bytes = await fetch(item.file_url).then(r => r.arrayBuffer());
       if (item.file_type === 'application/pdf') {
-        const src = await PDFDocument.load(bytes);
-        const copied = await pdfDoc.copyPages(src, src.getPageIndices());
-        copied.forEach(p => pdfDoc.addPage(p));
+        await copyPdfPagesReliable(pdfDoc, PDFDocument, bytes, item.file_url);
       } else {
         await addImagePageFromFile(pdfDoc, bytes, item.file_type);
       }
